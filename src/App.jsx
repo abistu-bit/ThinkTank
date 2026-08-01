@@ -1378,6 +1378,10 @@ function StudentViews({ db, view, person, notify, openDrive }) {
     return <BrowseDrives db={db} person={person} notify={notify} openDrive={openDrive} />;
   }
 
+  if (view === "all_drives") {
+    return <AllDrivesView db={db} openDrive={openDrive} />;
+  }
+
   if (view === "logbook") {
     return <MyLogbook db={db} person={person} myActivities={myActivities} myLogs={myLogs} notify={notify} />;
   }
@@ -2201,47 +2205,139 @@ function CreateActivity({ person, notify }) {
 }
 
 function ManageActivities({ db, myActivities, notify, openDrive }) {
-  const [tab, setTab] = useState("all");
-  const filtered = tab === "all" ? myActivities : myActivities.filter((a) => a.status === tab);
+  const [scope, setScope] = useState("mine");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const activitiesInScope = scope === "mine" ? myActivities : db.activities;
+  const filtered = statusFilter === "all"
+    ? activitiesInScope
+    : activitiesInScope.filter((a) => a.status === statusFilter);
+
   return (
     <>
-      <div className="section-head"><div><h3>Manage your drives</h3><p className="hint">Mark a published drive complete once it has taken place.</p></div></div>
+      <div className="section-head">
+        <div>
+          <h3>{scope === "mine" ? "My drives" : "All drives"}</h3>
+          <p className="hint">{scope === "mine" ? "Drives you have proposed. Mark a published drive complete once it has taken place." : "All drives across every coordinator in the system."}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className={`btn btn-sm ${scope === "mine" ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => { setScope("mine"); setStatusFilter("all"); }}
+          >My Drives</button>
+          <button
+            className={`btn btn-sm ${scope === "all" ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => { setScope("all"); setStatusFilter("all"); }}
+          >All Drives</button>
+        </div>
+      </div>
       <div className="tabs">
         {["all", "pending_approval", "published", "completed", "rejected"].map((t) => (
-          <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
+          <button key={t} className={`tab ${statusFilter === t ? "active" : ""}`} onClick={() => setStatusFilter(t)}>
             {t === "all" ? "All" : STATUS_MAP[t] ? STATUS_MAP[t].text : t}
+            <span style={{ marginLeft: 5, fontSize: 11, background: 'var(--paper-line)', borderRadius: 99, padding: '1px 7px', fontWeight: 600 }}>
+              {(t === "all" ? activitiesInScope : activitiesInScope.filter(a => a.status === t)).length}
+            </span>
           </button>
         ))}
       </div>
       {filtered.length === 0 ? (
-        <EmptyState title="Nothing here" body="Drives you propose will show up in this list." />
+        <EmptyState title="Nothing here" body={scope === "mine" ? "Drives you propose will show up in this list." : "No drives match this filter."} />
       ) : (
-        filtered.map((a) => (
-          <div className="activity-card" key={a.id} style={{ cursor: "pointer" }} onClick={() => openDrive(a.id)}>
-            <div className="top">
-              <div>
-                <span className="cat-chip"><CategoryIcon name={a.category} /> {a.category}</span>
-                <h4 style={{ marginTop: 8 }}>{a.title}</h4>
+        filtered.map((a) => {
+          const coordinator = scope === "all" ? db.staffList.find(s => s.id === a.createdBy) : null;
+          return (
+            <div className="activity-card" key={a.id} style={{ cursor: "pointer" }} onClick={() => openDrive(a.id)}>
+              <div className="top">
+                <div>
+                  <span className="cat-chip"><CategoryIcon name={a.category} /> {a.category}</span>
+                  <h4 style={{ marginTop: 8 }}>{a.title}</h4>
+                  {coordinator && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink-soft)' }}>by {coordinator.name}</p>}
+                </div>
+                <Stamp status={a.status} />
               </div>
-              <Stamp status={a.status} />
-            </div>
-            <div className="meta">
-              <span><Calendar size={13} /> {fmtDate(a.date)}</span>
-              <span><MapPin size={13} /> {a.location}</span>
-              <span><Users size={13} /> {a.registered.length}/{a.maxVolunteers} joined</span>
-            </div>
-            {a.status === "published" && (
-              <div className="foot">
-                <span></span>
-                <button className="btn btn-ghost btn-sm" onClick={() => notify.completeActivity(a.id)}>Mark as completed</button>
+              <div className="meta">
+                <span><Calendar size={13} /> {fmtDate(a.date)}</span>
+                <span><MapPin size={13} /> {a.location}</span>
+                <span><Users size={13} /> {a.registered.length}/{a.maxVolunteers} joined</span>
               </div>
-            )}
-          </div>
-        ))
+              {a.status === "published" && scope === "mine" && (
+                <div className="foot">
+                  <span></span>
+                  <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); notify.completeActivity(a.id); }}>Mark as completed</button>
+                </div>
+              )}
+            </div>
+          );
+        })
       )}
     </>
   );
 }
+
+/* ---- Shared All-Drives view (used by volunteer dashboard) ---- */
+function AllDrivesView({ db, openDrive }) {
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [q, setQ] = useState("");
+
+  const filtered = db.activities
+    .filter(a => {
+      const matchQ = !q.trim() || a.title.toLowerCase().includes(q.toLowerCase()) || a.location.toLowerCase().includes(q.toLowerCase());
+      const matchStatus = statusFilter === "all" || a.status === statusFilter;
+      return matchQ && matchStatus;
+    })
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+  return (
+    <>
+      <div className="section-head">
+        <div><h3>All drives</h3><p className="hint">Every drive in the system — created, pending, approved, completed, and rejected.</p></div>
+      </div>
+      <div className="filter-bar">
+        <div className="search-box">
+          <Search size={15} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by title or location..." />
+        </div>
+      </div>
+      <div className="tabs">
+        {["all", "pending_approval", "published", "completed", "rejected"].map((t) => (
+          <button key={t} className={`tab ${statusFilter === t ? "active" : ""}`} onClick={() => setStatusFilter(t)}>
+            {t === "all" ? "All" : STATUS_MAP[t] ? STATUS_MAP[t].text : t}
+            <span style={{ marginLeft: 5, fontSize: 11, background: 'var(--paper-line)', borderRadius: 99, padding: '1px 7px', fontWeight: 600 }}>
+              {(t === "all" ? db.activities : db.activities.filter(a => a.status === t)).length}
+            </span>
+          </button>
+        ))}
+      </div>
+      {filtered.length === 0 ? (
+        <EmptyState title="No drives found" body="Try a different filter or search term." />
+      ) : (
+        filtered.map(a => {
+          const coordinator = db.staffList.find(s => s.id === a.createdBy);
+          const { text: statusText, color: statusColor } = STATUS_MAP[a.status] || { text: a.status, color: "var(--ink-soft)" };
+          return (
+            <div className="activity-card" key={a.id} style={{ cursor: "pointer" }} onClick={() => openDrive(a.id)}>
+              <div className="top">
+                <div>
+                  <span className="cat-chip"><CategoryIcon name={a.category} /> {a.category}</span>
+                  <h4 style={{ marginTop: 8 }}>{a.title}</h4>
+                  {coordinator && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink-soft)' }}>Proposed by {coordinator.name}</p>}
+                </div>
+                <span style={{ padding: "4px 12px", borderRadius: 99, fontSize: 12, fontWeight: 700, background: statusColor + "22", color: statusColor, flexShrink: 0 }}>{statusText}</span>
+              </div>
+              <div className="meta">
+                <span><Calendar size={13} /> {fmtDate(a.date)}</span>
+                <span><MapPin size={13} /> {a.location}</span>
+                <span><Users size={13} /> {a.registered.length}/{a.maxVolunteers} joined</span>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </>
+  );
+}
+
 
 function ApproveHourLogs({ db, pendingLogs, notify }) {
   const [rejecting, setRejecting] = useState(null);
