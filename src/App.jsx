@@ -919,7 +919,7 @@ const NAV_ITEMS = {
     { key: "overview", label: "Overview", icon: Wallet },
     { key: "approvals", label: "Approve drives", icon: ShieldCheck },
     { key: "coordinators", label: "Coordinators", icon: Building2 },
-    { key: "staffs", label: "Staffs", icon: Users },
+    { key: "volunteers", label: "Volunteers", icon: Users },
     { key: "analytics", label: "Analytics", icon: BarChart3 },
     { key: "broadcast", label: "Broadcast", icon: Megaphone },
     { key: "profile", label: "Profile", icon: User },
@@ -2478,7 +2478,7 @@ function AdminViews({ db, view, person, notify, openDrive }) {
 
   if (view === "approvals") return <AdminApprovalsView db={db} pendingActivities={pendingActivities} notify={notify} />;
   if (view === "coordinators") return <CoordinatorsView db={db} />;
-  if (view === "staffs") return <StaffsView db={db} />;
+  if (view === "volunteers") return <AdminVolunteersView db={db} />;
   if (view === "profile") return <AdminProfile person={person} notify={notify} />;
   if (view === "analytics") return <Analytics db={db} />;
   if (view === "broadcast") return <Broadcast person={person} notify={notify} />;
@@ -2725,16 +2725,32 @@ function CoordinatorsView({ db }) {
           </table>
         </div>
       </div>
-      <div className="card" style={{ marginTop: 20 }}>
-        <h4 style={{ fontSize: 14.5, marginBottom: 14 }}>All volunteers</h4>
+      {selectedUser && <UserProgressModal user={selectedUser} role={userRole} db={db} onClose={() => setSelectedUser(null)} />}
+    </>
+  );
+}
+
+function AdminVolunteersView({ db }) {
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+
+  const openModal = (user, role) => {
+    setSelectedUser(user);
+    setUserRole(role);
+  };
+
+  return (
+    <>
+      <div className="section-head"><div><h3>Volunteers</h3><p className="hint">Every registered volunteer.</p></div></div>
+      <div className="card">
         <div className="ledger-table-wrap">
           <table className="ledger-table">
             <thead><tr><th>No.</th><th>Name</th><th>Department</th><th>Year</th><th>Verified hours</th></tr></thead>
             <tbody>
               {db.students.map((s, i) => (
-                <tr key={s.id} onClick={() => openModal(s, "student")} style={{ cursor: "pointer", transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background="var(--paper-hover)"} onMouseOut={e => e.currentTarget.style.background=""}>
+                <tr key={s.id} onClick={() => openModal(s, "student")} style={{ cursor: "pointer", transition: "background 0.2s" }} className="hoverable-row">
                   <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
-                  <td>{s.name}</td>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
                   <td>{s.dept}</td>
                   <td>{s.year}</td>
                   <td className="rowno">{computeStudentHours(db, s.id)}</td>
@@ -2746,6 +2762,74 @@ function CoordinatorsView({ db }) {
       </div>
       {selectedUser && <UserProgressModal user={selectedUser} role={userRole} db={db} onClose={() => setSelectedUser(null)} />}
     </>
+  );
+}
+
+function AdminProfile({ person, notify }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(person.name || "");
+  const [unit, setUnit] = useState(person.unit || "");
+  const [title, setTitle] = useState(person.title || "");
+
+  const handleSave = () => {
+    notify.updateAdminProfile(person.id, { name, unit, title });
+    setIsEditing(false);
+  };
+
+  return (
+    <div style={{ maxWidth: 600 }}>
+      <div className="section-head">
+        <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Admin Profile</h3><p className="hint">Manage your administrative details.</p></div>
+        {!isEditing && <button className="btn btn-outline" onClick={() => setIsEditing(true)}>Edit Profile</button>}
+      </div>
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
+          <div className="avatar" style={{ width: 80, height: 80, fontSize: 28, borderRadius: 24 }}>{initials(person.name)}</div>
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{person.name}</h2>
+            <p style={{ margin: "4px 0 0", color: "var(--ink-soft)" }}>{person.title || "Admin"} · {person.email}</p>
+          </div>
+        </div>
+        
+        {isEditing ? (
+          <div style={{ background: "var(--paper-hi)", padding: 20, borderRadius: 16 }}>
+            <div className="form-grid" style={{ marginBottom: 16 }}>
+              <div className="field">
+                <label>Full Name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Admin Title</label>
+                <input type="text" value={title} onChange={e => setTitle(e.target.value)} />
+              </div>
+              <div className="field full">
+                <label>Assigned Unit</label>
+                <input type="text" value={unit} onChange={e => setUnit(e.target.value)} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button className="btn btn-primary" onClick={handleSave}>Save Changes</button>
+              <button className="btn btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 4 }}>Admin ID</div>
+              <div style={{ fontWeight: 600 }}>{person.admin_id || "-"}</div>
+            </div>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 4 }}>Unit</div>
+              <div style={{ fontWeight: 600 }}>{person.unit || "-"}</div>
+            </div>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 4 }}>Title</div>
+              <div style={{ fontWeight: 600 }}>{person.title || "-"}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
