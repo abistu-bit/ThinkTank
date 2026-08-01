@@ -1008,10 +1008,10 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
   }, [notifOpen]);
 
   const emergencyNotice = useMemo(() => {
-    const e = myNotifs.find((n) => n.tone === "emergency");
+    const e = myNotifs.find((n) => n.tone === "emergency" && n.sender_id !== person.id);
     if (e && e.id !== dismissedEmergency) return e;
     return null;
-  }, [myNotifs, dismissedEmergency]);
+  }, [myNotifs, dismissedEmergency, person]);
 
   const items = NAV_ITEMS[session.role];
   const openDriveObj = openDriveId ? filteredDb.activities.find((a) => a.id === openDriveId) : null;
@@ -1119,8 +1119,15 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
               <p style={{ fontSize: 16, color: "var(--ink)", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
                 {emergencyNotice.message}
               </p>
-              <div style={{ marginTop: 30, display: "flex", justifyContent: "flex-end" }}>
-                <button className="btn btn-primary" onClick={() => setDismissedEmergency(emergencyNotice.id)} style={{ padding: "10px 24px" }}>I Understand</button>
+              <div style={{ marginTop: 30, display: "flex", justifyContent: "flex-end", gap: 12 }}>
+                <button className="btn" onClick={() => {
+                  setDismissedEmergency(emergencyNotice.id);
+                  notify.rejectEmergency(emergencyNotice, person);
+                }} style={{ padding: "10px 24px", background: "transparent", border: "1px solid var(--paper-line)", color: "var(--ink-soft)" }}>Reject</button>
+                <button className="btn btn-primary" onClick={() => {
+                  setDismissedEmergency(emergencyNotice.id);
+                  notify.acknowledgeEmergency(emergencyNotice, person);
+                }} style={{ padding: "10px 24px" }}>I Understand & Accept</button>
               </div>
             </div>
           </div>
@@ -1351,7 +1358,7 @@ function StudentViews({ db, view, person, notify, openDrive }) {
   }
 
   if (view === "profile") {
-    return <ProfileTab person={person} hours={hours} />;
+    return <ProfileTab person={person} hours={hours} notify={notify} />;
   }
 
   if (view === "virtual_id") {
@@ -1391,11 +1398,21 @@ function ImageGallery() {
   );
 }
 
-function ProfileTab({ person, hours }) {
+function ProfileTab({ person, hours, notify, hideEdit }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [regNo, setRegNo] = useState(person.reg_no || "");
+  const [bloodGroup, setBloodGroup] = useState(person.blood_group || "");
+
+  const handleSave = () => {
+    notify.updateProfile(person.id, { reg_no: regNo, blood_group: bloodGroup });
+    setIsEditing(false);
+  };
+
   return (
     <div style={{ maxWidth: 600 }}>
       <div className="section-head">
         <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Profile</h3><p className="hint">Your personal details and service record.</p></div>
+        {!isEditing && !hideEdit && <button className="btn btn-outline" onClick={() => setIsEditing(true)}>Edit Profile</button>}
       </div>
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
@@ -1405,24 +1422,45 @@ function ProfileTab({ person, hours }) {
             <div style={{ color: "var(--ink-soft)", marginTop: 4 }}>{person.email}</div>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Register Number</div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>{person.reg_no || "PENDING"}</div>
+        {isEditing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="field">
+              <label>Register Number</label>
+              <input type="text" value={regNo} onChange={(e) => setRegNo(e.target.value)} placeholder="e.g. 717821P123" />
+            </div>
+            <div className="field">
+              <label>Blood Group</label>
+              <input type="text" value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} placeholder="e.g. O+ve" />
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+              <button className="btn btn-primary" onClick={handleSave}>Save Changes</button>
+              <button className="btn" onClick={() => setIsEditing(false)}>Cancel</button>
+            </div>
           </div>
-          <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Department</div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>{person.dept || "N/A"}</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Register Number</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{person.reg_no || "PENDING"}</div>
+            </div>
+            <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Blood Group</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: person.blood_group ? "inherit" : "var(--spark)" }}>{person.blood_group || "NOT SET"}</div>
+            </div>
+            <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Department</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{person.dept || "N/A"}</div>
+            </div>
+            <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Role</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Volunteer (Unit 1)</div>
+            </div>
+            <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12, gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Total Hours Logged</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--stamp)" }}>{hours} hrs</div>
+            </div>
           </div>
-          <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Role</div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>Volunteer (Unit 1)</div>
-          </div>
-          <div style={{ padding: 16, background: "var(--paper-hi)", borderRadius: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Total Hours Logged</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--stamp)" }}>{hours} hrs</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1494,12 +1532,12 @@ function VirtualIdTab({ person }) {
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 10, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>Department</div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{person.dept || "N/A"}</div>
+                    <div style={{ fontSize: 10, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>Reg No</div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{person.reg_no || "PENDING"}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>Role</div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>Volunteer</div>
+                    <div style={{ fontSize: 10, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>Blood Group</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: person.blood_group ? "inherit" : "var(--spark)" }}>{person.blood_group || "NOT SET"}</div>
                   </div>
                 </div>
               </div>
@@ -2425,7 +2463,7 @@ function AdminViews({ db, view, person, notify, openDrive }) {
     );
   }
 
-  if (view === "approvals") return <ApproveActivities db={db} pendingActivities={pendingActivities} notify={notify} />;
+  if (view === "approvals") return <AdminApprovalsView db={db} pendingActivities={pendingActivities} notify={notify} />;
   if (view === "departments") return <DepartmentsStaff db={db} />;
   if (view === "analytics") return <Analytics db={db} />;
   if (view === "broadcast") return <Broadcast person={person} notify={notify} />;
@@ -2447,8 +2485,54 @@ function Leaderboard({ db, limit = 10 }) {
   );
 }
 
+function AdminApprovalsView({ db, pendingActivities, notify }) {
+  const [tab, setTab] = useState("pending");
+  const acceptedActivities = db.activities.filter((a) => a.status === "published" || a.status === "completed");
+  const rejectedActivities = db.activities.filter((a) => a.status === "rejected");
+
+  return (
+    <>
+      <div className="section-head" style={{ marginBottom: 16 }}>
+        <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Approve Drives</h3><p className="hint">Review proposed drives and see past decisions.</p></div>
+      </div>
+      <div className="tabs" style={{ display: 'flex', gap: 24, marginBottom: 24, borderBottom: '1px solid var(--paper-line)', paddingBottom: 12 }}>
+        <button className={`tab-btn ${tab === 'pending' ? 'active' : ''}`} onClick={() => setTab('pending')} style={{ background: 'transparent', border: 'none', color: tab === 'pending' ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: tab === 'pending' ? 600 : 400, cursor: 'pointer', padding: 0 }}>Pending ({pendingActivities.length})</button>
+        <button className={`tab-btn ${tab === 'accepted' ? 'active' : ''}`} onClick={() => setTab('accepted')} style={{ background: 'transparent', border: 'none', color: tab === 'accepted' ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: tab === 'accepted' ? 600 : 400, cursor: 'pointer', padding: 0 }}>Accepted ({acceptedActivities.length})</button>
+        <button className={`tab-btn ${tab === 'rejected' ? 'active' : ''}`} onClick={() => setTab('rejected')} style={{ background: 'transparent', border: 'none', color: tab === 'rejected' ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: tab === 'rejected' ? 600 : 400, cursor: 'pointer', padding: 0 }}>Rejected ({rejectedActivities.length})</button>
+      </div>
+      {tab === "pending" && <ApproveActivities db={db} pendingActivities={pendingActivities} notify={notify} hideHeader />}
+      {tab === "accepted" && <ActivityList db={db} activities={acceptedActivities} emptyText="No accepted drives." />}
+      {tab === "rejected" && <ActivityList db={db} activities={rejectedActivities} emptyText="No rejected drives." />}
+    </>
+  );
+}
+
+function ActivityList({ db, activities, emptyText }) {
+  if (activities.length === 0) return <EmptyState icon={ShieldCheck} title={emptyText} body="They will appear here once reviewed." />;
+  return (
+    <div className="ledger-table-wrap">
+      <table className="ledger-table">
+        <thead><tr><th>Title</th><th>Category</th><th>Coordinator</th><th>Date</th></tr></thead>
+        <tbody>
+          {activities.map(a => {
+            const staff = db.staffList.find(s => s.id === a.createdBy);
+            return (
+              <tr key={a.id}>
+                <td style={{ fontWeight: 500 }}>{a.title}</td>
+                <td><span className="cat-chip" style={{ zoom: 0.8 }}><CategoryIcon name={a.category} /> {a.category}</span></td>
+                <td>{staff ? staff.name : "Unknown"}</td>
+                <td className="rowno">{fmtDate(a.date)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ---- swipeable, keyboard-driven approval stack ---- */
-function ApproveActivities({ db, pendingActivities, notify }) {
+function ApproveActivities({ db, pendingActivities, notify, hideHeader }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [leaving, setLeaving] = useState(null);
@@ -2478,7 +2562,7 @@ function ApproveActivities({ db, pendingActivities, notify }) {
   if (pendingActivities.length === 0) {
     return (
       <>
-        <div className="section-head"><div><h3>Approve proposed drives</h3><p className="hint">Approved drives are published immediately and volunteers are notified.</p></div></div>
+        {!hideHeader && <div className="section-head"><div><h3>Approve proposed drives</h3><p className="hint">Approved drives are published immediately and volunteers are notified.</p></div></div>}
         <EmptyState icon={ShieldCheck} title="Nothing awaiting approval" body="Drives coordinators propose will land here first." />
       </>
     );
@@ -2489,7 +2573,7 @@ function ApproveActivities({ db, pendingActivities, notify }) {
 
   return (
     <>
-      <div className="section-head"><div><h3>Approve proposed drives</h3><p className="hint">Review one at a time — press <kbd style={{ fontFamily: "var(--font-mono)" }}>A</kbd> to approve, <kbd style={{ fontFamily: "var(--font-mono)" }}>R</kbd> to reject.</p></div></div>
+      {!hideHeader && <div className="section-head"><div><h3>Approve proposed drives</h3><p className="hint">Review one at a time — press <kbd style={{ fontFamily: "var(--font-mono)" }}>A</kbd> to approve, <kbd style={{ fontFamily: "var(--font-mono)" }}>R</kbd> to reject.</p></div></div>}
       <div className="stack-wrap">
         <div className="stack-progress">{total} drive{total === 1 ? "" : "s"} awaiting your sign-off</div>
         <div className="stack-card-wrap">
@@ -2527,7 +2611,55 @@ function ApproveActivities({ db, pendingActivities, notify }) {
   );
 }
 
+function UserProgressModal({ user, role, db, onClose }) {
+  if (!user) return null;
+  const isStudent = role === "student";
+
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 100 }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 16px 0' }}>
+          <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div style={{ padding: '0 24px 24px' }}>
+          {isStudent ? (
+            <>
+              <ProfileTab person={user} hours={computeStudentHours(db, user.id)} notify={{ updateProfile: () => {} }} hideEdit />
+              <div style={{ marginTop: 24 }}>
+                <VirtualIdTab person={user} db={db} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="section-head">
+                <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Coordinator Profile</h3></div>
+              </div>
+              <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                  <div className="avatar" style={{ width: 80, height: 80, fontSize: 28, borderRadius: 24 }}>{initials(user.name)}</div>
+                  <div>
+                    <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{user.name}</h2>
+                    <p style={{ margin: "4px 0 0", color: "var(--ink-soft)" }}>{user.dept} · {user.email}</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DepartmentsStaff({ db }) {
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+
+  const openModal = (user, role) => {
+    setSelectedUser(user);
+    setUserRole(role);
+  };
+
   return (
     <>
       <div className="section-head"><div><h3>Departments &amp; staff</h3><p className="hint">Every coordinator and the department they run drives for.</p></div></div>
@@ -2541,7 +2673,7 @@ function DepartmentsStaff({ db }) {
                 const runs = db.activities.filter((a) => a.createdBy === f.id);
                 const vols = new Set(runs.flatMap((a) => a.registered)).size;
                 return (
-                  <tr key={f.id}>
+                  <tr key={f.id} onClick={() => openModal(f, "staff")} style={{ cursor: "pointer", transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background="var(--paper-hover)"} onMouseOut={e => e.currentTarget.style.background=""}>
                     <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
                     <td>{f.name}</td>
                     <td>{f.dept}</td>
@@ -2561,7 +2693,7 @@ function DepartmentsStaff({ db }) {
             <thead><tr><th>No.</th><th>Name</th><th>Department</th><th>Year</th><th>Verified hours</th></tr></thead>
             <tbody>
               {db.students.map((s, i) => (
-                <tr key={s.id}>
+                <tr key={s.id} onClick={() => openModal(s, "student")} style={{ cursor: "pointer", transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background="var(--paper-hover)"} onMouseOut={e => e.currentTarget.style.background=""}>
                   <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
                   <td>{s.name}</td>
                   <td>{s.dept}</td>
@@ -2573,6 +2705,7 @@ function DepartmentsStaff({ db }) {
           </table>
         </div>
       </div>
+      {selectedUser && <UserProgressModal user={selectedUser} role={userRole} db={db} onClose={() => setSelectedUser(null)} />}
     </>
   );
 }
@@ -2674,9 +2807,9 @@ function Analytics({ db }) {
                 onMouseEnter={(_, index) => setActivePie(index)}
                 onMouseLeave={() => setActivePie(-1)}
               >
-                {categoryCounts.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} style={{ opacity: activePie === -1 || activePie === i ? 1 : 0.4, transition: "opacity 0.2s ease", cursor: "pointer" }} />)}
+                {categoryCounts.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="var(--paper)" strokeWidth={2} style={{ opacity: activePie === -1 || activePie === i ? 1 : 0.4, transition: "opacity 0.2s ease", cursor: "pointer" }} />)}
               </Pie>
-              {activePie === -1 && <Tooltip content={<CustomTooltip />} />}
+              <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -3172,9 +3305,29 @@ export default function App() {
     },
     broadcast: async (adminPerson, message, isEmergency = false) => {
       if (!db) return;
-      await supabase.from('notifications').insert({ audience: "all", message: `[Announcement from ${adminPerson.name}] ${message}`, tone: isEmergency ? "emergency" : "info" });
+      await supabase.from('notifications').insert({ audience: "all", message: `[Announcement from ${adminPerson.name}] ${message}`, tone: isEmergency ? "emergency" : "info", sender_id: adminPerson.id });
       load();
       pushToast(isEmergency ? "Emergency Alert Sent!" : "Announcement sent.", isEmergency ? "warn" : "success");
+    },
+    acknowledgeEmergency: async (emergencyNotice, person) => {
+      if (!db || !emergencyNotice.sender_id) return;
+      await supabase.from('notifications').insert({ audience: emergencyNotice.sender_id, message: `[Acknowledge] ${person.name} has accepted your emergency alert.`, tone: "success" });
+      load();
+    },
+    rejectEmergency: async (emergencyNotice, person) => {
+      if (!db || !emergencyNotice.sender_id) return;
+      await supabase.from('notifications').insert({ audience: emergencyNotice.sender_id, message: `[Reject] ${person.name} has rejected your emergency alert.`, tone: "warn" });
+      load();
+    },
+    updateProfile: async (personId, updates) => {
+      if (!db) return;
+      setDb(prev => ({
+        ...prev,
+        students: prev.students.map(s => s.id === personId ? { ...s, ...updates } : s)
+      }));
+      await supabase.from('students').update(updates).eq('id', personId);
+      load();
+      pushToast("Profile updated.", "success");
     },
   }), [db, pushToast, load]);
 
