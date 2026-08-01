@@ -914,12 +914,15 @@ const NAV_ITEMS = {
     { key: "manage", label: "Manage drives", icon: ClipboardList },
     { key: "approvals", label: "Approve hours", icon: FileCheck2 },
     { key: "volunteers", label: "Volunteers", icon: Users },
+    { key: "coordinators", label: "Other Coordinators", icon: Building2 },
+    { key: "gallery", label: "Gallery", icon: Image },
   ],
   admin: [
     { key: "overview", label: "Overview", icon: Wallet },
     { key: "approvals", label: "Approve drives", icon: ShieldCheck },
     { key: "coordinators", label: "Coordinators", icon: Building2 },
     { key: "volunteers", label: "Volunteers", icon: Users },
+    { key: "gallery", label: "Gallery", icon: Image },
     { key: "analytics", label: "Analytics", icon: BarChart3 },
     { key: "broadcast", label: "Broadcast", icon: Megaphone },
     { key: "profile", label: "Profile", icon: User },
@@ -2118,6 +2121,8 @@ function StaffViews({ db, view, person, notify, openDrive }) {
   if (view === "manage") return <ManageActivities db={db} myActivities={myActivities} notify={notify} openDrive={openDrive} />;
   if (view === "approvals") return <ApproveHourLogs db={db} pendingLogs={pendingLogs} notify={notify} />;
   if (view === "volunteers") return <VolunteerDirectory db={db} myActivities={myActivities} />;
+  if (view === "coordinators") return <CoordinatorsView db={db} />;
+  if (view === "gallery") return <ImageGallery />;
   return null;
 }
 
@@ -2482,6 +2487,7 @@ function AdminViews({ db, view, person, notify, openDrive }) {
   if (view === "profile") return <AdminProfile person={person} notify={notify} />;
   if (view === "analytics") return <Analytics db={db} />;
   if (view === "broadcast") return <Broadcast person={person} notify={notify} />;
+  if (view === "gallery") return <ImageGallery />;
   return null;
 }
 
@@ -2629,58 +2635,121 @@ function ApproveActivities({ db, pendingActivities, notify, hideHeader }) {
 function UserProgressModal({ user, role, db, onClose }) {
   if (!user) return null;
   const isStudent = role === "student";
+  const totalHours = isStudent ? computeStudentHours(db, user.id) : 0;
+  const approvedActivities = isStudent
+    ? db.hourLogs.filter(h => h.studentId === user.id && h.status === "approved")
+    : [];
+  const approvedCount = approvedActivities.length;
+  const earnedBadges = MILESTONES.filter(m => m.events <= approvedCount);
+  const earnedCerts = approvedActivities.map(log => {
+    const act = db.activities.find(a => a.id === log.activityId);
+    return act ? act.title : null;
+  }).filter(Boolean);
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0, 0, 0, 0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ background: "var(--paper)", borderRadius: 12, maxWidth: 800, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+    <div className="modal-overlay" onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0, 0, 0, 0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ background: "var(--paper)", borderRadius: 20, maxWidth: 680, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 16px 0' }}>
           <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
         </div>
-        <div style={{ padding: '0 24px 24px' }}>
+        <div style={{ padding: '0 28px 28px' }}>
           {isStudent ? (
             <>
-              <ProfileTab person={user} hours={computeStudentHours(db, user.id)} notify={{ updateProfile: () => {} }} hideEdit />
-              <div style={{ marginTop: 24 }}>
-                <VirtualIdTab person={user} db={db} />
+              {/* Header */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10, marginBottom: 24 }}>
+                <div className="avatar" style={{ width: 88, height: 88, fontSize: 32, borderRadius: 28, marginBottom: 4 }}>{initials(user.name)}</div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{user.name}</h2>
+                <p style={{ color: 'var(--ink-soft)', margin: 0, fontSize: 14 }}>{user.dept} · {user.email}</p>
+                {user.reg_no && <span style={{ background: 'var(--paper-hi)', borderRadius: 99, padding: '2px 12px', fontSize: 12, fontWeight: 600 }}>{user.reg_no}</span>}
+              </div>
+
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+                <div style={{ background: 'var(--paper-hi)', borderRadius: 14, padding: '16px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800 }}>{totalHours}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Verified Hours</div>
+                </div>
+                <div style={{ background: 'var(--paper-hi)', borderRadius: 14, padding: '16px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800 }}>{approvedCount}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Drives Attended</div>
+                </div>
+                <div style={{ background: 'var(--paper-hi)', borderRadius: 14, padding: '16px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800 }}>{earnedBadges.length}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Badges Earned</div>
+                </div>
+              </div>
+
+              {/* Badges */}
+              <div style={{ marginBottom: 24 }}>
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, textAlign: 'center' }}>🏅 Badges</h4>
+                {earnedBadges.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>No badges earned yet.</p>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 16 }}>
+                    {earnedBadges.map(b => (
+                      <div key={b.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        <img src={b.image} alt={b.label} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 12, border: '2px solid var(--paper-line)' }} onError={e => { e.target.style.display='none'; }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-soft)' }}>{b.label}</span>
+                      </div>
+                    ))}
+                    {MILESTONES.filter(m => m.events > approvedCount).map(b => (
+                      <div key={b.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, opacity: 0.35 }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 12, background: 'var(--paper-hi)', border: '2px dashed var(--paper-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🔒</div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-soft)' }}>{b.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Certificates */}
+              <div>
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, textAlign: 'center' }}>📜 Certificates</h4>
+                {earnedCerts.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>No certificates earned yet.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                    {earnedCerts.map((cert, i) => (
+                      <div key={i} style={{ background: 'linear-gradient(135deg, #f8f0ff, #ede9fe)', border: '1px solid #c4b5fd', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 600, color: '#6d28d9' }}>
+                        📜 {cert}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           ) : (
             <>
-              <div className="section-head">
-                <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Coordinator Profile</h3></div>
-              </div>
-              <div className="card" style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                  <div className="avatar" style={{ width: 80, height: 80, fontSize: 28, borderRadius: 24 }}>{initials(user.name)}</div>
-                  <div>
-                    <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{user.name}</h2>
-                    <p style={{ margin: "4px 0 0", color: "var(--ink-soft)" }}>{user.dept} · {user.email}</p>
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
+                <div className="avatar" style={{ width: 80, height: 80, fontSize: 28, borderRadius: 24 }}>{initials(user.name)}</div>
+                <div>
+                  <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Coordinator Profile</h2>
+                  <p style={{ margin: "4px 0 0", color: "var(--ink-soft)" }}>{user.dept} · {user.email}</p>
                 </div>
               </div>
-              <div className="section-head">
-                <div><h3 style={{ fontSize: 18, fontWeight: 600 }}>Drives Planned</h3></div>
-              </div>
-              <div className="card">
-                <div className="ledger-table-wrap">
-                  <table className="ledger-table">
-                    <thead><tr><th>No.</th><th>Title</th><th>Date</th><th>Location</th><th>Volunteers</th></tr></thead>
-                    <tbody>
-                      {db.activities.filter(a => a.createdBy === user.id).length === 0 ? (
-                        <tr><td colSpan="5" style={{ textAlign: "center", color: "var(--ink-soft)" }}>No drives planned yet.</td></tr>
-                      ) : (
-                        db.activities.filter(a => a.createdBy === user.id).map((a, i) => (
-                          <tr key={a.id}>
-                            <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
-                            <td style={{ fontWeight: 600 }}>{a.title}</td>
-                            <td>{new Date(a.date).toLocaleDateString()}</td>
-                            <td>{a.location}</td>
-                            <td>{a.registered.length} / {a.maxVolunteers}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+              <div style={{ marginBottom: 20 }}>
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Drives Planned</h4>
+                <div className="card" style={{ margin: 0 }}>
+                  <div className="ledger-table-wrap">
+                    <table className="ledger-table">
+                      <thead><tr><th>No.</th><th>Title</th><th>Date</th><th>Location</th><th>Volunteers</th></tr></thead>
+                      <tbody>
+                        {db.activities.filter(a => a.createdBy === user.id).length === 0 ? (
+                          <tr><td colSpan="5" style={{ textAlign: "center", color: "var(--ink-soft)" }}>No drives planned yet.</td></tr>
+                        ) : (
+                          db.activities.filter(a => a.createdBy === user.id).map((a, i) => (
+                            <tr key={a.id}>
+                              <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
+                              <td style={{ fontWeight: 600 }}>{a.title}</td>
+                              <td>{new Date(a.date).toLocaleDateString()}</td>
+                              <td>{a.location}</td>
+                              <td>{a.registered.length} / {a.maxVolunteers}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </>
@@ -2916,25 +2985,39 @@ function Analytics({ db }) {
         </div>
         <div className="card">
           <h4 style={{ fontSize: 14.5, marginBottom: 12 }}>Drives by category</h4>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie 
-                data={categoryCounts} 
-                dataKey="value" 
-                nameKey="name" 
-                innerRadius={55} 
-                outerRadius={75} 
-                paddingAngle={2}
-                activeIndex={activePie}
-                activeShape={renderActiveShape}
-                onMouseEnter={(_, index) => setActivePie(index)}
-                onMouseLeave={() => setActivePie(-1)}
-              >
-                {categoryCounts.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="var(--paper)" strokeWidth={2} style={{ opacity: activePie === -1 || activePie === i ? 1 : 0.4, transition: "opacity 0.2s ease", cursor: "pointer" }} />)}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
+            <ResponsiveContainer width={220} height={220}>
+              <PieChart>
+                <Pie
+                  data={categoryCounts}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={55}
+                  outerRadius={75}
+                  paddingAngle={2}
+                  activeIndex={activePie}
+                  activeShape={renderActiveShape}
+                  onMouseEnter={(_, index) => setActivePie(index)}
+                  onMouseLeave={() => setActivePie(-1)}
+                >
+                  {categoryCounts.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="var(--paper)" strokeWidth={2} style={{ opacity: activePie === -1 || activePie === i ? 1 : 0.4, transition: "opacity 0.2s ease", cursor: "pointer" }} />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {categoryCounts.map((c, i) => (
+                <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                  onMouseEnter={() => setActivePie(i)} onMouseLeave={() => setActivePie(-1)}>
+                  <div style={{ width: 12, height: 12, borderRadius: 3, background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{c.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, minWidth: 28, textAlign: 'right' }}>{c.value}</div>
+                  <div style={{ width: 80, background: 'var(--paper-line)', borderRadius: 99, height: 6, overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.round((c.value / Math.max(...categoryCounts.map(x => x.value), 1)) * 100)}%`, height: '100%', background: PIE_COLORS[i % PIE_COLORS.length], borderRadius: 99, transition: 'width 0.4s' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       <div className="card" style={{ marginTop: 20 }}>
@@ -2944,11 +3027,17 @@ function Analytics({ db }) {
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={trend} margin={{ left: -10 }}>
+              <defs>
+                <linearGradient id="hoursGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--moss)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--moss)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke="var(--paper-line)" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--ink-soft)" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "var(--ink-soft)" }} allowDecimals={false} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="hours" stroke="var(--moss)" strokeWidth={3} dot={{ r: 4, fill: "var(--paper-hi)", strokeWidth: 2 }} activeDot={{ r: 6, fill: "var(--moss)", stroke: "var(--paper-hi)", strokeWidth: 2 }} animationDuration={800} animationEasing="ease-out" />
+              <Line type="basis" dataKey="hours" stroke="var(--moss)" strokeWidth={3} dot={{ r: 4, fill: "var(--paper-hi)", strokeWidth: 2 }} activeDot={{ r: 6, fill: "var(--moss)", stroke: "var(--paper-hi)", strokeWidth: 2 }} animationDuration={800} animationEasing="ease-out" />
             </LineChart>
           </ResponsiveContainer>
         )}
