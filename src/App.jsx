@@ -921,6 +921,7 @@ const NAV_ITEMS = {
   student: [
     { key: "overview", label: "Overview", icon: Wallet },
     { key: "browse", label: "Browse drives", icon: Calendar },
+    { key: "all_drives", label: "All drives", icon: ClipboardList },
     { key: "logbook", label: "My logbook", icon: BookOpen },
     { key: "certificates", label: "Certificates & badges", icon: Award },
     { key: "gallery", label: "Image gallery", icon: Image },
