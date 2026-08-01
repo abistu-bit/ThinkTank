@@ -8,7 +8,7 @@ import {
   ClipboardList, Sparkles, RefreshCw, ArrowLeft, FileCheck2,
   Printer, PenLine, ShieldCheck, Wallet, Search, Command, Sun, Moon,
   Scissors, Flame, KeyRound, Undo2, Image, QrCode, User, Download, XCircle,
-  CheckCircle2, AlertCircle, Info
+  CheckCircle2, AlertCircle, Info, AlertTriangle
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
