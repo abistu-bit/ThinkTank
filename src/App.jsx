@@ -8,7 +8,7 @@ import {
   ClipboardList, Sparkles, RefreshCw, ArrowLeft, FileCheck2,
   Printer, PenLine, ShieldCheck, Wallet, Search, Command, Sun, Moon,
   Scissors, Flame, KeyRound, Undo2, Image, QrCode, User, Download, XCircle,
-  CheckCircle2, AlertCircle, Info, AlertTriangle
+  CheckCircle2, AlertCircle, Info, AlertTriangle, Star, MessageSquare
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -44,6 +44,48 @@ const MILESTONES = [
 ];
 
 const DEPARTMENTS = ["CSE", "ECE", "Mechanical", "Civil"];
+
+const SAMPLE_FEEDBACKS = [
+  {
+    id: "fb_1",
+    student_id: "s1",
+    student_name: "Rahul Verma",
+    student_dept: "CSE",
+    activity_id: "act_1",
+    activity_title: "Campus Blood Donation Camp",
+    coordinator_id: "f1",
+    rating: 5,
+    category: "Drive Organization",
+    message: "Extremely well organized! The refreshment stall and medical care team were very attentive. Great initiative by the NSS team.",
+    created_at: "2026-07-28T10:30:00Z"
+  },
+  {
+    id: "fb_2",
+    student_id: "s2",
+    student_name: "Ananya Sharma",
+    student_dept: "ECE",
+    activity_id: "act_2",
+    activity_title: "Clean Campus Drive",
+    coordinator_id: "f1",
+    rating: 4,
+    category: "Volunteer Impact",
+    message: "Great drive for environmental awareness. Would appreciate better equipment like heavy-duty gloves next time.",
+    created_at: "2026-07-29T14:15:00Z"
+  },
+  {
+    id: "fb_3",
+    student_id: "s3",
+    student_name: "Karthik Raja",
+    student_dept: "Mechanical",
+    activity_id: "act_3",
+    activity_title: "Tree Plantation & Eco Awareness",
+    coordinator_id: "f2",
+    rating: 5,
+    category: "Coordinator Support",
+    message: "Our coordinator guided us throughout the plantation process and geotagging. Super smooth experience!",
+    created_at: "2026-07-30T09:00:00Z"
+  }
+];
 
 function uid(prefix) {
   return prefix + "_" + Math.random().toString(36).slice(2, 9);
@@ -924,6 +966,7 @@ const NAV_ITEMS = {
     { key: "all_drives", label: "All drives", icon: ClipboardList },
     { key: "logbook", label: "My logbook", icon: BookOpen },
     { key: "certificates", label: "Certificates & badges", icon: Award },
+    { key: "feedback", label: "Give Feedback", icon: MessageSquare },
     { key: "gallery", label: "Image gallery", icon: Image },
     { key: "virtual_id", label: "Virtual ID", icon: QrCode },
     { key: "profile", label: "Profile", icon: User },
@@ -935,6 +978,7 @@ const NAV_ITEMS = {
     { key: "approvals", label: "Approve hours", icon: FileCheck2 },
     { key: "volunteers", label: "Volunteers", icon: Users },
     { key: "coordinators", label: "Other Coordinators", icon: Building2 },
+    { key: "feedback", label: "Volunteer Feedback", icon: MessageSquare },
     { key: "gallery", label: "Gallery", icon: Image },
     { key: "profile", label: "Profile", icon: User },
   ],
@@ -1398,6 +1442,10 @@ function StudentViews({ db, view, person, notify, openDrive }) {
 
   if (view === "profile") {
     return <ProfileTab person={person} hours={hours} notify={notify} />;
+  }
+
+  if (view === "feedback") {
+    return <VolunteerFeedback person={person} db={db} notify={notify} />;
   }
 
   if (view === "virtual_id") {
@@ -2151,6 +2199,7 @@ function StaffViews({ db, view, person, notify, openDrive }) {
   if (view === "coordinators") return <CoordinatorsView db={db} />;
   if (view === "gallery") return <ImageGallery />;
   if (view === "profile") return <StaffProfile person={person} notify={notify} />;
+  if (view === "feedback") return <CoordinatorFeedbackView db={db} person={person} notify={notify} />;
   return null;
 }
 
@@ -3203,6 +3252,281 @@ function StaffProfile({ person, notify }) {
   );
 }
 
+function VolunteerFeedback({ person, db, notify }) {
+  const [selectedActivityId, setSelectedActivityId] = useState("");
+  const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [category, setCategory] = useState("Drive Organization");
+  const [message, setMessage] = useState("");
+
+  const registeredDrives = useMemo(() => {
+    return db.activities.filter(a => a.registered && a.registered.includes(person.id));
+  }, [db.activities, person.id]);
+
+  useEffect(() => {
+    if (registeredDrives.length > 0 && !selectedActivityId) {
+      setSelectedActivityId(registeredDrives[0].id);
+    }
+  }, [registeredDrives, selectedActivityId]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!message.trim()) {
+      alert("Please enter your feedback comments.");
+      return;
+    }
+    const act = db.activities.find(a => a.id === selectedActivityId);
+    notify.submitFeedback(person, {
+      activityId: selectedActivityId || "general",
+      activityTitle: act ? act.title : "General Drive Feedback",
+      coordinatorId: act ? act.createdBy : "",
+      rating,
+      category,
+      message: message.trim()
+    });
+    setMessage("");
+    setRating(5);
+  };
+
+  const myFeedbacks = useMemo(() => {
+    return (db.feedbacks || []).filter(f => f.student_id === person.id);
+  }, [db.feedbacks, person.id]);
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <div className="section-head">
+        <div>
+          <h3 style={{ fontSize: 24, fontWeight: 700 }}>Volunteer Feedback</h3>
+          <p className="hint">Share your experience, rate drives, and help coordinators improve future activities.</p>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 28 }}>
+        <h4 style={{ fontSize: 17, fontWeight: 700, marginBottom: 18 }}>Submit New Feedback</h4>
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid" style={{ marginBottom: 16 }}>
+            <div className="field full">
+              <label>Select Drive / Activity</label>
+              <select value={selectedActivityId} onChange={e => setSelectedActivityId(e.target.value)}>
+                {registeredDrives.length === 0 && <option value="general">General Drive Feedback</option>}
+                {registeredDrives.map(a => (
+                  <option key={a.id} value={a.id}>{a.title} ({a.dept})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Feedback Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}>
+                <option value="Drive Organization">Drive Organization</option>
+                <option value="Venue & Safety">Venue & Safety</option>
+                <option value="Coordinator Support">Coordinator Support</option>
+                <option value="Volunteer Impact">Volunteer Impact</option>
+                <option value="General Feedback">General Feedback</option>
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Star Rating</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 6 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, transition: 'transform 0.15s ease' }}
+                  >
+                    <Star
+                      size={26}
+                      fill={(hoverRating || rating) >= star ? "#F59E0B" : "none"}
+                      color={(hoverRating || rating) >= star ? "#F59E0B" : "var(--ink-soft)"}
+                    />
+                  </button>
+                ))}
+                <span style={{ fontSize: 13, fontWeight: 700, marginLeft: 8, color: 'var(--ink)' }}>{rating} / 5</span>
+              </div>
+            </div>
+
+            <div className="field full">
+              <label>Your Feedback & Comments</label>
+              <textarea
+                rows={4}
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Share what went well, what could be improved, or suggestions for the coordinator..."
+                style={{ width: '100%', resize: 'vertical', padding: '12px', borderRadius: '12px', border: '1px solid var(--paper-line)', background: 'var(--paper-hi)', color: 'var(--ink)', fontSize: '14px' }}
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <MessageSquare size={16} /> Submit Feedback
+          </button>
+        </form>
+      </div>
+
+      <div>
+        <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Your Feedback History</h4>
+        {myFeedbacks.length === 0 ? (
+          <EmptyState icon={MessageSquare} title="No feedback submitted yet" body="Your submitted drive reviews and ratings will appear here." />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {myFeedbacks.map(fb => (
+              <div key={fb.id} className="card" style={{ padding: 18, background: 'var(--paper-hi)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div>
+                    <h5 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{fb.activity_title}</h5>
+                    <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Category: {fb.category}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <Star key={s} size={16} fill={fb.rating >= s ? "#F59E0B" : "none"} color={fb.rating >= s ? "#F59E0B" : "var(--paper-line)"} />
+                    ))}
+                  </div>
+                </div>
+                <p style={{ margin: '8px 0 10px', fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>"{fb.message}"</p>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)', textAlign: 'right' }}>
+                  Submitted on {new Date(fb.created_at || Date.now()).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CoordinatorFeedbackView({ db, person, notify }) {
+  const [selectedRating, setSelectedRating] = useState("all");
+
+  const deptFeedbacks = useMemo(() => {
+    return db.feedbacks || [];
+  }, [db.feedbacks]);
+
+  const filteredFeedbacks = useMemo(() => {
+    if (selectedRating === "all") return deptFeedbacks;
+    const num = Number(selectedRating);
+    return deptFeedbacks.filter(f => f.rating === num);
+  }, [deptFeedbacks, selectedRating]);
+
+  const avgRating = useMemo(() => {
+    if (deptFeedbacks.length === 0) return "5.0";
+    const sum = deptFeedbacks.reduce((acc, fb) => acc + (Number(fb.rating) || 5), 0);
+    return (sum / deptFeedbacks.length).toFixed(1);
+  }, [deptFeedbacks]);
+
+  const satisfactionRate = useMemo(() => {
+    if (deptFeedbacks.length === 0) return 100;
+    const positive = deptFeedbacks.filter(f => f.rating >= 4).length;
+    return Math.round((positive / deptFeedbacks.length) * 100);
+  }, [deptFeedbacks]);
+
+  return (
+    <div>
+      <div className="section-head" style={{ marginBottom: 24 }}>
+        <div>
+          <h3 style={{ fontSize: 24, fontWeight: 700 }}>Volunteer Feedback & Reviews</h3>
+          <p className="hint">Reviews and ratings submitted by volunteers who participated in your department's drives.</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 24 }}>
+        <div className="stat-card">
+          <div className="lbl">Average Drive Rating</div>
+          <div className="val" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{avgRating}</span>
+            <Star size={24} fill="#F59E0B" color="#F59E0B" />
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="lbl">Total Feedback Received</div>
+          <div className="val">{deptFeedbacks.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="lbl">Volunteer Satisfaction</div>
+          <div className="val" style={{ color: 'var(--stamp)' }}>{satisfactionRate}%</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[
+          { id: 'all', label: `All Reviews (${deptFeedbacks.length})` },
+          { id: '5', label: `5 Stars (${deptFeedbacks.filter(f => f.rating === 5).length})` },
+          { id: '4', label: `4 Stars (${deptFeedbacks.filter(f => f.rating === 4).length})` },
+          { id: '3', label: `3 Stars & Below (${deptFeedbacks.filter(f => f.rating <= 3).length})` },
+        ].map(filter => (
+          <button
+            key={filter.id}
+            onClick={() => setSelectedRating(filter.id)}
+            className={`btn ${selectedRating === filter.id ? 'btn-primary' : 'btn-outline'}`}
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20 }}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      {filteredFeedbacks.length === 0 ? (
+        <EmptyState icon={MessageSquare} title="No feedback matching filter" body="Once volunteers submit reviews for your drives, they will show up here." />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 18 }}>
+          {filteredFeedbacks.map(fb => (
+            <div key={fb.id} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="avatar" style={{ width: 42, height: 42, fontSize: 16, borderRadius: 14 }}>
+                      {initials(fb.student_name || "Volunteer")}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{fb.student_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{fb.student_dept || 'Volunteer'}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <Star key={s} size={15} fill={fb.rating >= s ? "#F59E0B" : "none"} color={fb.rating >= s ? "#F59E0B" : "var(--paper-line)"} />
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  <span style={{ background: 'var(--paper-hi)', border: '1px solid var(--paper-line)', padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
+                    📍 {fb.activity_title}
+                  </span>
+                  <span style={{ background: 'rgba(79,70,229,0.1)', color: 'var(--ink)', padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
+                    🏷️ {fb.category}
+                  </span>
+                </div>
+
+                <p style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, margin: '0 0 16px', background: 'var(--paper-hi)', padding: 14, borderRadius: 12, fontStyle: 'italic' }}>
+                  "{fb.message}"
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--paper-line)' }}>
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>
+                  {new Date(fb.created_at || Date.now()).toLocaleDateString()}
+                </span>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => notify.acknowledgeFeedback(fb.id)}
+                  style={{ fontSize: 12, padding: '4px 10px', color: fb.acknowledged ? 'var(--stamp)' : 'var(--ink)' }}
+                >
+                  {fb.acknowledged ? "✓ Acknowledged" : "Acknowledge"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const renderActiveShape = (props) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value } = props;
   return (
@@ -3769,15 +4093,27 @@ export default function App() {
         photoUrl: h.photo_url
       }));
 
-      setDb({
+      let fb = [];
+      try {
+        const { data } = await supabase.from('feedbacks').select('*');
+        if (data && data.length > 0) fb = data;
+      } catch (err) {}
+
+      let savedFb = [];
+      try { savedFb = JSON.parse(localStorage.getItem('uniserve_feedbacks')) || []; } catch(e) {}
+
+      const finalFeedbacks = (fb && fb.length > 0) ? fb : (savedFb.length > 0 ? savedFb : SAMPLE_FEEDBACKS);
+
+      setDb(prev => ({
         students: s || [],
         staffList: sl || [],
         otherStaff: ost || [],
         admins: ad || [],
         activities: mappedActivities,
         hourLogs: mappedLogs,
-        notifications: n || []
-      });
+        notifications: n || [],
+        feedbacks: finalFeedbacks
+      }));
     } catch (e) {
       console.error(e);
       pushToast("Failed to connect to Supabase.", "warn");
@@ -3924,6 +4260,63 @@ export default function App() {
       await supabase.from('staff_list').update(updates).eq('id', personId);
       load();
       pushToast("Coordinator Profile updated.", "success");
+    },
+    submitFeedback: async (studentPerson, form) => {
+      if (!db) return;
+      const newFeedback = {
+        id: uid("fb"),
+        student_id: studentPerson.id,
+        student_name: studentPerson.name,
+        student_dept: studentPerson.dept || "CSE",
+        activity_id: form.activityId,
+        activity_title: form.activityTitle,
+        coordinator_id: form.coordinatorId || "",
+        rating: Number(form.rating),
+        category: form.category || "General Feedback",
+        message: form.message,
+        created_at: new Date().toISOString()
+      };
+
+      let currentFbs = [];
+      try { currentFbs = JSON.parse(localStorage.getItem('uniserve_feedbacks')) || []; } catch(e) {}
+      if (currentFbs.length === 0 && db.feedbacks && db.feedbacks.length > 0) {
+        currentFbs = db.feedbacks;
+      }
+      const updatedFbs = [newFeedback, ...currentFbs];
+      try { localStorage.setItem('uniserve_feedbacks', JSON.stringify(updatedFbs)); } catch(e) {}
+
+      setDb(prev => ({
+        ...prev,
+        feedbacks: updatedFbs
+      }));
+
+      try {
+        await supabase.from('feedbacks').insert(newFeedback);
+        if (form.coordinatorId) {
+          await supabase.from('notifications').insert({
+            audience: `staff:${form.coordinatorId}`,
+            message: `${studentPerson.name} submitted a ${form.rating}-star feedback for "${form.activityTitle}".`,
+            tone: "info"
+          });
+        }
+      } catch (e) {
+        console.error("Supabase insert error", e);
+      }
+      pushToast("Feedback submitted successfully!", "success");
+    },
+    acknowledgeFeedback: async (feedbackId) => {
+      if (!db) return;
+      const currentFbs = db.feedbacks || [];
+      const updatedFbs = currentFbs.map(f => f.id === feedbackId ? { ...f, acknowledged: true } : f);
+      try { localStorage.setItem('uniserve_feedbacks', JSON.stringify(updatedFbs)); } catch(e) {}
+      setDb(prev => ({
+        ...prev,
+        feedbacks: updatedFbs
+      }));
+      try {
+        await supabase.from('feedbacks').update({ acknowledged: true }).eq('id', feedbackId);
+      } catch (e) {}
+      pushToast("Feedback acknowledged.", "success");
     },
   }), [db, pushToast, load]);
 
