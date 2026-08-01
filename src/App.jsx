@@ -2840,60 +2840,86 @@ function AdminProfile({ person, notify }) {
   const [unit, setUnit] = useState(person.unit || "");
   const [title, setTitle] = useState(person.title || "");
 
+  // Sync edit fields whenever person changes reactively from DB
+  useEffect(() => {
+    if (!isEditing) {
+      setName(person.name || "");
+      setUnit(person.unit || "");
+      setTitle(person.title || "");
+    }
+  }, [person, isEditing]);
+
   const handleSave = () => {
     notify.updateAdminProfile(person.id, { name, unit, title });
     setIsEditing(false);
   };
 
+  const handleCancel = () => {
+    setName(person.name || "");
+    setUnit(person.unit || "");
+    setTitle(person.title || "");
+    setIsEditing(false);
+  };
+
   return (
-    <div style={{ maxWidth: 600 }}>
+    <div style={{ maxWidth: 640 }}>
       <div className="section-head">
-        <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Admin Profile</h3><p className="hint">Manage your administrative details.</p></div>
+        <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Admin Profile</h3><p className="hint">Your administrative identity and credentials.</p></div>
         {!isEditing && <button className="btn btn-outline" onClick={() => setIsEditing(true)}>Edit Profile</button>}
       </div>
-      <div className="card">
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        {/* Hero header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
-          <div className="avatar" style={{ width: 80, height: 80, fontSize: 28, borderRadius: 24 }}>{initials(person.name)}</div>
+          <div className="avatar" style={{ width: 88, height: 88, fontSize: 32, borderRadius: 28, flexShrink: 0 }}>{initials(person.name)}</div>
           <div>
             <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{person.name}</h2>
-            <p style={{ margin: "4px 0 0", color: "var(--ink-soft)" }}>{person.title || "Admin"} · {person.email}</p>
+            <p style={{ margin: "4px 0 2px", color: "var(--ink-soft)", fontSize: 14 }}>{person.title || "Program Admin"}</p>
+            <p style={{ margin: 0, color: "var(--ink-soft)", fontSize: 13 }}>{person.email}</p>
           </div>
         </div>
-        
+
         {isEditing ? (
           <div style={{ background: "var(--paper-hi)", padding: 20, borderRadius: 16 }}>
             <div className="form-grid" style={{ marginBottom: 16 }}>
               <div className="field">
                 <label>Full Name</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} />
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
               </div>
               <div className="field">
                 <label>Admin Title</label>
-                <input type="text" value={title} onChange={e => setTitle(e.target.value)} />
+                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Program Admin" />
               </div>
               <div className="field full">
-                <label>Assigned Unit</label>
-                <input type="text" value={unit} onChange={e => setUnit(e.target.value)} />
+                <label>Assigned NSS Unit</label>
+                <select value={unit} onChange={e => setUnit(e.target.value)}>
+                  <option value="Unit 1">NSS Unit 1</option>
+                  <option value="Unit 2">NSS Unit 2</option>
+                </select>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <button className="btn btn-primary" onClick={handleSave}>Save Changes</button>
-              <button className="btn btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+              <button className="btn btn-ghost" onClick={handleCancel}>Cancel</button>
             </div>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
-              <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 4 }}>Admin ID</div>
-              <div style={{ fontWeight: 600 }}>{person.admin_id || "-"}</div>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admin ID</div>
+              <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: 14 }}>{person.admin_id || "—"}</div>
             </div>
             <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
-              <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 4 }}>Unit</div>
-              <div style={{ fontWeight: 600 }}>{person.unit || "-"}</div>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Unit</div>
+              <div style={{ fontWeight: 600 }}>{person.unit || "—"}</div>
             </div>
             <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
-              <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 4 }}>Title</div>
-              <div style={{ fontWeight: 600 }}>{person.title || "-"}</div>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Title</div>
+              <div style={{ fontWeight: 600 }}>{person.title || "Program Admin"}</div>
+            </div>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</div>
+              <div style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: 13 }}>{person.email}</div>
             </div>
           </div>
         )}
@@ -3179,7 +3205,6 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     const decoded = jwtDecode(credentialResponse.credential);
-    console.log("Google user info:", decoded);
     
     const roleError = await verifyRoleConstraints(decoded.email);
     if (roleError) return alert(roleError);
@@ -3191,16 +3216,27 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
     const { data } = await supabase.from(table).select('*').eq('email', decoded.email);
     
     if (data && data.length > 0) {
-      onLoginSuccess({ role: selectedRole, personaId: data[0].id });
+      let record = data[0];
+      if (selectedRole === 'admin' && !record.admin_id) {
+        const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        await supabase.from('admins').update({ admin_id: newAdminId, unit: record.unit || unit }).eq('id', record.id);
+        record = { ...record, admin_id: newAdminId, unit: record.unit || unit };
+      }
+      if (!record.unit && unit) {
+        await supabase.from(table).update({ unit }).eq('id', record.id);
+      }
+      onLoginSuccess({ role: selectedRole, personaId: record.id });
     } else {
-      const newUser = { email: decoded.email, name: decoded.name };
+      const newUser = { email: decoded.email, name: decoded.name, unit };
       if (selectedRole === 'student') {
         newUser.dept = 'CSE';
-        newUser.unit = unit;
         newUser.reg_no = `NSS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         newUser.verify_token = crypto.randomUUID();
+      } else if (selectedRole === 'staff') {
+        newUser.dept = 'CSE';
       } else if (selectedRole === 'admin') {
-         newUser.title = "Admin";
+        newUser.title = 'Program Admin';
+        newUser.admin_id = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       }
       const { data: created, error } = await supabase.from(table).insert(newUser).select();
       if (created && created.length > 0) {
