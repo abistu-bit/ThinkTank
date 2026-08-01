@@ -936,6 +936,7 @@ const NAV_ITEMS = {
     { key: "volunteers", label: "Volunteers", icon: Users },
     { key: "coordinators", label: "Other Coordinators", icon: Building2 },
     { key: "gallery", label: "Gallery", icon: Image },
+    { key: "profile", label: "Profile", icon: User },
   ],
   admin: [
     { key: "overview", label: "Overview", icon: Wallet },
@@ -992,24 +993,6 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
     };
   }, [db, person]);
 
-  if (!person) {
-    return (
-      <div style={{ padding: 40, fontFamily: 'var(--font-mono)', background: 'var(--paper)', minHeight: '100vh', color: 'var(--ink)' }}>
-        <h2 style={{ color: 'var(--stamp)' }}>Error loading profile</h2>
-        <p>The profile ID {session.personaId} could not be found in the loaded database for role {session.role}.</p>
-        <p>Database dump:</p>
-        <pre style={{ background: 'var(--paper-hi)', padding: 20, borderRadius: 8, overflow: 'auto' }}>
-          {JSON.stringify({ 
-            students: db.students.map(s => s.id), 
-            staffList: db.staffList.map(s => s.id), 
-            admins: db.admins.map(s => s.id) 
-          }, null, 2)}
-        </pre>
-        <button className="btn btn-primary" onClick={() => { onExit(); window.location.reload(); }}>Sign out and try again</button>
-      </div>
-    );
-  }
-
   const myNotifs = useMemo(
     () => [...db.notifications].filter((n) => audienceMatches(n.audience, session)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 20),
     [db.notifications, session]
@@ -1037,10 +1020,29 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
   }, [notifOpen]);
 
   const emergencyNotice = useMemo(() => {
+    if (!person) return null;
     const e = myNotifs.find((n) => n.tone === "emergency" && n.sender_id !== person.id);
     if (e && !dismissedEmergencies.includes(e.id)) return e;
     return null;
   }, [myNotifs, dismissedEmergencies, person]);
+
+  if (!person) {
+    return (
+      <div style={{ padding: 40, fontFamily: 'var(--font-mono)', background: 'var(--paper)', minHeight: '100vh', color: 'var(--ink)' }}>
+        <h2 style={{ color: 'var(--stamp)' }}>Error loading profile</h2>
+        <p>The profile ID {session.personaId} could not be found in the loaded database for role {session.role}.</p>
+        <p>Database dump:</p>
+        <pre style={{ background: 'var(--paper-hi)', padding: 20, borderRadius: 8, overflow: 'auto' }}>
+          {JSON.stringify({ 
+            students: db.students.map(s => s.id), 
+            staffList: db.staffList.map(s => s.id), 
+            admins: db.admins.map(s => s.id) 
+          }, null, 2)}
+        </pre>
+        <button className="btn btn-primary" onClick={() => { onExit(); window.location.reload(); }}>Sign out and try again</button>
+      </div>
+    );
+  }
 
   const items = NAV_ITEMS[session.role];
   const openDriveObj = openDriveId ? filteredDb.activities.find((a) => a.id === openDriveId) : null;
@@ -2148,6 +2150,7 @@ function StaffViews({ db, view, person, notify, openDrive }) {
   if (view === "volunteers") return <VolunteerDirectory db={db} myActivities={myActivities} />;
   if (view === "coordinators") return <CoordinatorsView db={db} />;
   if (view === "gallery") return <ImageGallery />;
+  if (view === "profile") return <StaffProfile person={person} notify={notify} />;
   return null;
 }
 
@@ -3092,6 +3095,114 @@ function AdminProfile({ person, notify }) {
   );
 }
 
+function StaffProfile({ person, notify }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(person.name || "");
+  const [dept, setDept] = useState(person.dept || "CSE");
+  const [unit, setUnit] = useState(person.unit || "");
+  const [title, setTitle] = useState(person.title || "");
+
+  useEffect(() => {
+    if (!isEditing) {
+      setName(person.name || "");
+      setDept(person.dept || "CSE");
+      setUnit(person.unit || "");
+      setTitle(person.title || "");
+    }
+  }, [person, isEditing]);
+
+  const handleSave = () => {
+    notify.updateStaffProfile(person.id, { name, dept, unit, title });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setName(person.name || "");
+    setDept(person.dept || "CSE");
+    setUnit(person.unit || "");
+    setTitle(person.title || "");
+    setIsEditing(false);
+  };
+
+  const displayTitle = person.title || (person.dept ? `${person.dept} Dept. Coordinator` : "Coordinator");
+
+  return (
+    <div style={{ maxWidth: 640 }}>
+      <div className="section-head">
+        <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Coordinator Profile</h3><p className="hint">Your coordinator identity and credentials.</p></div>
+        {!isEditing && <button className="btn btn-outline" onClick={() => setIsEditing(true)}>Edit Profile</button>}
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        {/* Hero header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
+          <div className="avatar" style={{ width: 88, height: 88, fontSize: 32, borderRadius: 28, flexShrink: 0 }}>{initials(person.name)}</div>
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{person.name}</h2>
+            <p style={{ margin: "4px 0 2px", color: "var(--ink-soft)", fontSize: 14 }}>{displayTitle}</p>
+            <p style={{ margin: 0, color: "var(--ink-soft)", fontSize: 13 }}>{person.email}</p>
+          </div>
+        </div>
+
+        {isEditing ? (
+          <div style={{ background: "var(--paper-hi)", padding: 20, borderRadius: 16 }}>
+            <div className="form-grid" style={{ marginBottom: 16 }}>
+              <div className="field">
+                <label>Full Name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
+              </div>
+              <div className="field">
+                <label>Department</label>
+                <select value={dept} onChange={e => setDept(e.target.value)}>
+                  {DEPARTMENTS.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Coordinator Title</label>
+                <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Dept. Coordinator" />
+              </div>
+              <div className="field">
+                <label>Assigned NSS Unit</label>
+                <select value={unit} onChange={e => setUnit(e.target.value)}>
+                  <option value="Unit 1">NSS Unit 1</option>
+                  <option value="Unit 2">NSS Unit 2</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button className="btn btn-primary" onClick={handleSave}>Save Changes</button>
+              <button className="btn btn-ghost" onClick={handleCancel}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coordinator ID</div>
+              <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: 14 }}>
+                {person.staff_id ? (person.staff_id.startsWith("Coordinator-") ? person.staff_id : `Coordinator-${person.staff_id}`) : (person.id ? `Coordinator-${String(person.id).replace(/\D/g, "").slice(0, 4) || Math.abs(String(person.id).split("").reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) | 0, 0)) % 9000 + 1000}` : "Coordinator-1001")}
+              </div>
+            </div>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Unit</div>
+              <div style={{ fontWeight: 600 }}>{person.unit || "—"}</div>
+            </div>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
+              <div style={{ fontWeight: 600 }}>{person.dept || "—"}</div>
+            </div>
+            <div style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</div>
+              <div style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: 13 }}>{person.email}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const renderActiveShape = (props) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value } = props;
   return (
@@ -3332,6 +3443,7 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
           newUser.verify_token = crypto.randomUUID();
         } else if (selectedRole === 'staff') {
           newUser.dept = 'CSE';
+          newUser.staff_id = `Coordinator-${Math.floor(1000 + Math.random() * 9000)}`;
         } else if (selectedRole === 'admin') {
           newUser.title = 'Program Admin';
           newUser.admin_id = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -3351,6 +3463,11 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
       if (data && data.length > 0) {
         let record = data[0];
         // If admin is missing their ID, generate one now and patch
+        if (selectedRole === 'staff' && !record.staff_id) {
+          const newStaffId = `Coordinator-${Math.floor(1000 + Math.random() * 9000)}`;
+          await supabase.from('staff_list').update({ staff_id: newStaffId, unit: record.unit || unit }).eq('id', record.id);
+          record = { ...record, staff_id: newStaffId, unit: record.unit || unit };
+        }
         if (selectedRole === 'admin' && !record.admin_id) {
           const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
           await supabase.from('admins').update({ admin_id: newAdminId, unit: record.unit || unit }).eq('id', record.id);
@@ -3381,6 +3498,11 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
     
     if (data && data.length > 0) {
       let record = data[0];
+      if (selectedRole === 'staff' && !record.staff_id) {
+        const newStaffId = `Coordinator-${Math.floor(1000 + Math.random() * 9000)}`;
+        await supabase.from('staff_list').update({ staff_id: newStaffId, unit: record.unit || unit }).eq('id', record.id);
+        record = { ...record, staff_id: newStaffId, unit: record.unit || unit };
+      }
       if (selectedRole === 'admin' && !record.admin_id) {
         const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         await supabase.from('admins').update({ admin_id: newAdminId, unit: record.unit || unit }).eq('id', record.id);
@@ -3398,6 +3520,7 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
         newUser.verify_token = crypto.randomUUID();
       } else if (selectedRole === 'staff') {
         newUser.dept = 'CSE';
+        newUser.staff_id = `Coordinator-${Math.floor(1000 + Math.random() * 9000)}`;
       } else if (selectedRole === 'admin') {
         newUser.title = 'Program Admin';
         newUser.admin_id = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -3792,17 +3915,35 @@ export default function App() {
       load();
       pushToast("Admin Profile updated.", "success");
     },
+    updateStaffProfile: async (personId, updates) => {
+      if (!db) return;
+      setDb(prev => ({
+        ...prev,
+        staffList: prev.staffList.map(s => s.id === personId ? { ...s, ...updates } : s)
+      }));
+      await supabase.from('staff_list').update(updates).eq('id', personId);
+      load();
+      pushToast("Coordinator Profile updated.", "success");
+    },
   }), [db, pushToast, load]);
 
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
 
-  // Auto-patch missing admin_id for admins who signed up before this feature
+  // Auto-patch missing admin_id / staff_id for accounts signed up before this feature
   useEffect(() => {
-    if (!session || !db || session.role !== 'admin') return;
-    const admin = db.admins.find(a => a.id === session.personaId);
-    if (admin && !admin.admin_id) {
-      const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      supabase.from('admins').update({ admin_id: newAdminId }).eq('id', admin.id).then(() => load());
+    if (!session || !db) return;
+    if (session.role === 'admin') {
+      const admin = db.admins.find(a => a.id === session.personaId);
+      if (admin && !admin.admin_id) {
+        const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        supabase.from('admins').update({ admin_id: newAdminId }).eq('id', admin.id).then(() => load());
+      }
+    } else if (session.role === 'staff') {
+      const staff = db.staffList.find(s => s.id === session.personaId);
+      if (staff && !staff.staff_id) {
+        const newStaffId = `Coordinator-${Math.floor(1000 + Math.random() * 9000)}`;
+        supabase.from('staff_list').update({ staff_id: newStaffId }).eq('id', staff.id).then(() => load());
+      }
     }
   }, [session, db, load]);
 
