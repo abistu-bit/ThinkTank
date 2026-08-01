@@ -988,6 +988,7 @@ const NAV_ITEMS = {
     { key: "manage", label: "Manage drives", icon: ClipboardList },
     { key: "coordinators", label: "Coordinators", icon: Building2 },
     { key: "volunteers", label: "Volunteers", icon: Users },
+    { key: "feedback", label: "Volunteer Feedback", icon: MessageSquare },
     { key: "gallery", label: "Gallery", icon: Image },
     { key: "analytics", label: "Analytics", icon: BarChart3 },
     { key: "broadcast", label: "Broadcast", icon: Megaphone },
@@ -2657,6 +2658,7 @@ function AdminViews({ db, view, person, notify, openDrive }) {
   if (view === "analytics") return <Analytics db={db} />;
   if (view === "broadcast") return <Broadcast person={person} notify={notify} />;
   if (view === "gallery") return <ImageGallery />;
+  if (view === "feedback") return <CoordinatorFeedbackView db={db} person={person} notify={notify} />;
   return null;
 }
 
@@ -4120,12 +4122,43 @@ export default function App() {
     }
   }, [pushToast]);
 
+  // Lightweight notification-only refresh (avoids full 7-table reload)
+  const loadNotifs = useCallback(async () => {
+    try {
+      const { data: n } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(100);
+      if (n) setDb(prev => prev ? { ...prev, notifications: n } : prev);
+    } catch(e) {}
+  }, []);
+
+  // Initial full load + window focus → lightweight notif refresh only
   useEffect(() => { 
-    load(); 
-    const handleFocus = () => load();
+    load();
+    const handleFocus = () => loadNotifs();
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [load]);
+  }, [load, loadNotifs]);
+
+  // Supabase Realtime: push new notifications instantly without polling
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime:notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          const newNotif = payload.new;
+          if (!newNotif) return;
+          setDb(prev => {
+            if (!prev) return prev;
+            const already = prev.notifications.some(n => n.id === newNotif.id);
+            if (already) return prev;
+            return { ...prev, notifications: [newNotif, ...prev.notifications] };
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const notify = useMemo(() => ({
     createActivity: async (staffPerson, form) => {
@@ -4135,34 +4168,35 @@ export default function App() {
         max_volunteers: form.maxVolunteers, hours: form.hours, status: "pending_approval", created_by: staffPerson.id, dept: staffPerson.dept, registered: []
       });
       await supabase.from('notifications').insert({ audience: "admins", message: `${staffPerson.name} proposed a new drive: "${form.title}" — awaiting your approval.`, tone: "info" });
-      load();
+      load(); // needs activity list refresh
       pushToast("Sent to the program admin for approval.", "success");
     },
     approveActivity: async (activityId) => {
       if (!db) return;
       const a = db.activities.find((x) => x.id === activityId);
       if (!a) return;
+      // Optimistic update
+      setDb(prev => ({ ...prev, activities: prev.activities.map(x => x.id === activityId ? { ...x, status: "published" } : x) }));
       await supabase.from('activities').update({ status: "published" }).eq('id', activityId);
       await supabase.from('notifications').insert([
         { audience: "all", message: `New drive published: "${a.title}" on ${fmtDate(a.date)} — register now.`, tone: "info" },
         { audience: `staff:${a.createdBy}`, message: `Your drive "${a.title}" was approved and is now live.`, tone: "success" }
       ]);
-      load();
       pushToast("Drive approved and published.", "success");
     },
     rejectActivity: async (activityId, reason) => {
       if (!db) return;
       const a = db.activities.find((x) => x.id === activityId);
       if (!a) return;
+      setDb(prev => ({ ...prev, activities: prev.activities.map(x => x.id === activityId ? { ...x, status: "rejected" } : x) }));
       await supabase.from('activities').update({ status: "rejected" }).eq('id', activityId);
       await supabase.from('notifications').insert({ audience: `staff:${a.createdBy}`, message: `Your drive "${a.title}" was not approved. Reason: ${reason}`, tone: "warn" });
-      load();
       pushToast("Drive rejected.", "warn");
     },
     completeActivity: async (activityId) => {
       if (!db) return;
+      setDb(prev => ({ ...prev, activities: prev.activities.map(x => x.id === activityId ? { ...x, status: "completed" } : x) }));
       await supabase.from('activities').update({ status: "completed" }).eq('id', activityId);
-      load();
       pushToast("Marked as completed.", "success");
     },
     registerForActivity: async (studentId, activityId) => {
@@ -4171,18 +4205,20 @@ export default function App() {
       const student = db.students.find((s) => s.id === studentId);
       if (!a || a.registered.includes(studentId) || a.registered.length >= a.maxVolunteers) return;
       const newRegistered = [...a.registered, studentId];
+      // Optimistic update
+      setDb(prev => ({ ...prev, activities: prev.activities.map(x => x.id === activityId ? { ...x, registered: newRegistered } : x) }));
       await supabase.from('activities').update({ registered: newRegistered }).eq('id', activityId);
       await supabase.from('notifications').insert({ audience: `staff:${a.createdBy}`, message: `${student.name} registered for "${a.title}".`, tone: "info" });
-      load();
       pushToast("You're registered — the coordinator has been notified.", "success");
     },
     submitHourLog: async (studentId, activityId, hours, note, photoName) => {
       if (!db) return;
       const a = db.activities.find((x) => x.id === activityId);
       const student = db.students.find((s) => s.id === studentId);
+      const newLog = { id: uid('hl'), student_id: studentId, activity_id: activityId, hours, note, photo_url: photoName, status: "pending", date: new Date().toISOString().slice(0, 10) };
+      setDb(prev => ({ ...prev, hourLogs: [{ ...newLog, studentId, activityId, photoUrl: photoName }, ...prev.hourLogs] }));
       await supabase.from('hour_logs').insert({ student_id: studentId, activity_id: activityId, hours, note, photo_url: photoName, status: "pending", date: new Date().toISOString().slice(0, 10) });
       await supabase.from('notifications').insert({ audience: `staff:${a.createdBy}`, message: `${student.name} logged ${hours} hrs for "${a.title}" — awaiting your approval.`, tone: "info" });
-      load();
       pushToast("Hours submitted for approval.", "success");
     },
     approveHourLog: async (logId) => {
@@ -4192,6 +4228,8 @@ export default function App() {
       const a = db.activities.find((x) => x.id === log.activityId);
       const student = db.students.find((s) => s.id === log.studentId);
       const before = computeStudentHours(db, log.studentId);
+      // Optimistic update
+      setDb(prev => ({ ...prev, hourLogs: prev.hourLogs.map(h => h.id === logId ? { ...h, status: "approved" } : h) }));
       await supabase.from('hour_logs').update({ status: "approved" }).eq('id', logId);
       const after = before + log.hours;
       
@@ -4202,7 +4240,6 @@ export default function App() {
         setBurst(crossed.label);
       }
       await supabase.from('notifications').insert(notifs);
-      load();
       pushToast(`Approved ${log.hours} hrs for ${student ? student.name : "volunteer"}.`, "success");
     },
     rejectHourLog: async (logId, reason) => {
@@ -4210,26 +4247,23 @@ export default function App() {
       const log = db.hourLogs.find((h) => h.id === logId);
       if (!log) return;
       const a = db.activities.find((x) => x.id === log.activityId);
+      setDb(prev => ({ ...prev, hourLogs: prev.hourLogs.map(h => h.id === logId ? { ...h, status: "rejected" } : h) }));
       await supabase.from('hour_logs').update({ status: "rejected" }).eq('id', logId);
       await supabase.from('notifications').insert({ audience: `student:${log.studentId}`, message: `Your hour log for "${a ? a.title : "a drive"}" was rejected: ${reason}`, tone: "warn" });
-      load();
       pushToast("Log rejected.", "warn");
     },
     broadcast: async (adminPerson, message, isEmergency = false) => {
       if (!db) return;
       await supabase.from('notifications').insert({ audience: "all", message: `[Announcement from ${adminPerson.name}] ${message}`, tone: isEmergency ? "emergency" : "info", sender_id: adminPerson.id });
-      load();
       pushToast(isEmergency ? "Emergency Alert Sent!" : "Announcement sent.", isEmergency ? "warn" : "success");
     },
     acknowledgeEmergency: async (emergencyNotice, person) => {
       if (!db || !emergencyNotice.sender_id) return;
       await supabase.from('notifications').insert({ audience: emergencyNotice.sender_id, message: `[Acknowledge] ${person.name} has accepted your emergency alert.`, tone: "success" });
-      load();
     },
     rejectEmergency: async (emergencyNotice, person) => {
       if (!db || !emergencyNotice.sender_id) return;
       await supabase.from('notifications').insert({ audience: emergencyNotice.sender_id, message: `[Reject] ${person.name} has rejected your emergency alert.`, tone: "warn" });
-      load();
     },
     updateProfile: async (personId, updates) => {
       if (!db) return;
@@ -4238,7 +4272,6 @@ export default function App() {
         students: prev.students.map(s => s.id === personId ? { ...s, ...updates } : s)
       }));
       await supabase.from('students').update(updates).eq('id', personId);
-      load();
       pushToast("Profile updated.", "success");
     },
     updateAdminProfile: async (personId, updates) => {
@@ -4248,7 +4281,6 @@ export default function App() {
         admins: prev.admins.map(a => a.id === personId ? { ...a, ...updates } : a)
       }));
       await supabase.from('admins').update(updates).eq('id', personId);
-      load();
       pushToast("Admin Profile updated.", "success");
     },
     updateStaffProfile: async (personId, updates) => {
@@ -4258,7 +4290,6 @@ export default function App() {
         staffList: prev.staffList.map(s => s.id === personId ? { ...s, ...updates } : s)
       }));
       await supabase.from('staff_list').update(updates).eq('id', personId);
-      load();
       pushToast("Coordinator Profile updated.", "success");
     },
     submitFeedback: async (studentPerson, form) => {
@@ -4318,7 +4349,7 @@ export default function App() {
       } catch (e) {}
       pushToast("Feedback acknowledged.", "success");
     },
-  }), [db, pushToast, load]);
+  }), [db, pushToast, load, loadNotifs]);
 
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
 
