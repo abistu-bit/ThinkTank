@@ -1270,8 +1270,8 @@ function StudentViews({ db, view, person, notify, openDrive }) {
                 const drive = upcoming[i];
                 if (drive) {
                   return (
-                    <div key={drive.id} style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 16, border: "1px solid var(--paper-line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div key={drive.id} style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 16, border: "1px solid var(--paper-line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--paper)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)" }}>
                           <Calendar size={20} />
                         </div>
@@ -1280,7 +1280,7 @@ function StudentViews({ db, view, person, notify, openDrive }) {
                           <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{fmtDate(drive.date)}</div>
                         </div>
                       </div>
-                      <button className="btn btn-primary" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => openDrive(drive.id)}>View</button>
+                      <button className="btn btn-primary" style={{ padding: "6px 12px", fontSize: 12, flexShrink: 0 }} onClick={() => openDrive(drive.id)}>View</button>
                     </div>
                   );
                 } else {
@@ -2623,8 +2623,8 @@ function UserProgressModal({ user, role, db, onClose }) {
   const isStudent = role === "student";
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 100 }}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="modal-overlay" onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0, 0, 0, 0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ background: "var(--paper)", borderRadius: 12, maxWidth: 800, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 16px 0' }}>
           <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
         </div>
@@ -2918,25 +2918,39 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
     if (selectedRole === 'staff') table = 'staff_list';
     if (selectedRole === 'admin') table = 'admins';
 
-    const { data } = await supabase.from(table).select('*').eq('email', email);
-    
-    if (data && data.length > 0) {
-      onLoginSuccess({ role: selectedRole, personaId: data[0].id });
-    } else {
-      const newUser = { email, name: name || email.split('@')[0] };
-      if (selectedRole === 'student') {
-        newUser.dept = 'CSE';
-        newUser.unit = unit;
-        newUser.reg_no = `NSS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        newUser.verify_token = crypto.randomUUID();
-      } else if (selectedRole === 'admin') {
-         newUser.title = "Admin";
-      }
-      const { data: created, error } = await supabase.from(table).insert(newUser).select();
-      if (created && created.length > 0) {
-        onLoginSuccess({ role: selectedRole, personaId: created[0].id });
+    if (isSignUp) {
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+      if (authError) return alert(authError.message);
+      
+      const { data } = await supabase.from(table).select('*').eq('email', email);
+      if (data && data.length > 0) {
+        onLoginSuccess({ role: selectedRole, personaId: data[0].id });
       } else {
-        alert("Login failed. " + (error ? error.message : ""));
+        const newUser = { email, name: name || email.split('@')[0] };
+        if (selectedRole === 'student') {
+          newUser.dept = 'CSE';
+          newUser.unit = unit;
+          newUser.reg_no = `NSS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+          newUser.verify_token = crypto.randomUUID();
+        } else if (selectedRole === 'admin') {
+           newUser.title = "Admin";
+        }
+        const { data: created, error } = await supabase.from(table).insert(newUser).select();
+        if (created && created.length > 0) {
+          onLoginSuccess({ role: selectedRole, personaId: created[0].id });
+        } else {
+          alert("Login failed. " + (error ? error.message : ""));
+        }
+      }
+    } else {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) return alert(authError.message);
+      
+      const { data } = await supabase.from(table).select('*').eq('email', email);
+      if (data && data.length > 0) {
+        onLoginSuccess({ role: selectedRole, personaId: data[0].id });
+      } else {
+        alert("Account not found for this role. Please sign up or choose the correct role.");
       }
     }
   };
@@ -3166,7 +3180,15 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
 
 export default function App() {
   const [db, setDb] = useState(null);
-  const [session, setSession] = useState(null);
+  const [session, setSessionState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('technova_session')); }
+    catch { return null; }
+  });
+  const setSession = useCallback((newSession) => {
+    setSessionState(newSession);
+    if (newSession) localStorage.setItem('technova_session', JSON.stringify(newSession));
+    else localStorage.removeItem('technova_session');
+  }, []);
   const [view, setView] = useState("overview");
   const [toasts, setToasts] = useState([]);
   const [theme, setTheme] = useState("light");
