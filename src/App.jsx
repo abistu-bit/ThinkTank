@@ -938,7 +938,10 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
   const [notifOpen, setNotifOpen] = useState(false);
   const [cmdkOpen, setCmdkOpen] = useState(false);
   const [openDriveId, setOpenDriveId] = useState(null);
-  const [dismissedEmergency, setDismissedEmergency] = useState(null);
+  const [dismissedEmergencies, setDismissedEmergencies] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`dismissedEmergencies_${session.personaId}`)) || []; }
+    catch { return []; }
+  });
   const notifRef = useRef(null);
 
 
@@ -1009,9 +1012,9 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
 
   const emergencyNotice = useMemo(() => {
     const e = myNotifs.find((n) => n.tone === "emergency" && n.sender_id !== person.id);
-    if (e && e.id !== dismissedEmergency) return e;
+    if (e && !dismissedEmergencies.includes(e.id)) return e;
     return null;
-  }, [myNotifs, dismissedEmergency, person]);
+  }, [myNotifs, dismissedEmergencies, person]);
 
   const items = NAV_ITEMS[session.role];
   const openDriveObj = openDriveId ? filteredDb.activities.find((a) => a.id === openDriveId) : null;
@@ -1121,11 +1124,15 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
               </p>
               <div style={{ marginTop: 30, display: "flex", justifyContent: "flex-end", gap: 12 }}>
                 <button className="btn" onClick={() => {
-                  setDismissedEmergency(emergencyNotice.id);
+                  const next = [...dismissedEmergencies, emergencyNotice.id];
+                  setDismissedEmergencies(next);
+                  localStorage.setItem(`dismissedEmergencies_${session.personaId}`, JSON.stringify(next));
                   notify.rejectEmergency(emergencyNotice, person);
                 }} style={{ padding: "10px 24px", background: "transparent", border: "1px solid var(--paper-line)", color: "var(--ink-soft)" }}>Reject</button>
                 <button className="btn btn-primary" onClick={() => {
-                  setDismissedEmergency(emergencyNotice.id);
+                  const next = [...dismissedEmergencies, emergencyNotice.id];
+                  setDismissedEmergencies(next);
+                  localStorage.setItem(`dismissedEmergencies_${session.personaId}`, JSON.stringify(next));
                   notify.acknowledgeEmergency(emergencyNotice, person);
                 }} style={{ padding: "10px 24px" }}>I Understand & Accept</button>
               </div>
