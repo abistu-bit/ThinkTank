@@ -918,9 +918,11 @@ const NAV_ITEMS = {
   admin: [
     { key: "overview", label: "Overview", icon: Wallet },
     { key: "approvals", label: "Approve drives", icon: ShieldCheck },
-    { key: "departments", label: "Departments & staff", icon: Building2 },
+    { key: "coordinators", label: "Coordinators", icon: Building2 },
+    { key: "staffs", label: "Staffs", icon: Users },
     { key: "analytics", label: "Analytics", icon: BarChart3 },
     { key: "broadcast", label: "Broadcast", icon: Megaphone },
+    { key: "profile", label: "Profile", icon: User },
   ],
 };
 
@@ -2306,6 +2308,7 @@ function ApproveHourLogs({ db, pendingLogs, notify }) {
 function VolunteerDirectory({ db, myActivities }) {
   const [sortKey, setSortKey] = useState("name");
   const [sortAsc, setSortAsc] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   const ids = new Set(myActivities.flatMap((a) => a.registered));
   const list = db.students.filter((s) => ids.has(s.id)).map(s => ({ ...s, hours: computeStudentHours(db, s.id) }));
@@ -2344,7 +2347,7 @@ function VolunteerDirectory({ db, myActivities }) {
             </thead>
             <tbody>
               {list.map((s, i) => (
-                <tr key={s.id}>
+                <tr key={s.id} onClick={() => setSelectedUser(s)} style={{ cursor: "pointer" }} className="hoverable-row">
                   <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
                   <td style={{ fontWeight: 600, color: "var(--ink)" }}>{s.name}</td>
                   <td>{s.dept}</td>
@@ -2358,6 +2361,9 @@ function VolunteerDirectory({ db, myActivities }) {
             </tbody>
           </table>
         </div>
+      )}
+      {selectedUser && (
+        <UserProgressModal user={selectedUser} role="student" db={db} onClose={() => setSelectedUser(null)} />
       )}
     </>
   );
@@ -2471,7 +2477,9 @@ function AdminViews({ db, view, person, notify, openDrive }) {
   }
 
   if (view === "approvals") return <AdminApprovalsView db={db} pendingActivities={pendingActivities} notify={notify} />;
-  if (view === "departments") return <DepartmentsStaff db={db} />;
+  if (view === "coordinators") return <CoordinatorsView db={db} />;
+  if (view === "staffs") return <StaffsView db={db} />;
+  if (view === "profile") return <AdminProfile person={person} notify={notify} />;
   if (view === "analytics") return <Analytics db={db} />;
   if (view === "broadcast") return <Broadcast person={person} notify={notify} />;
   return null;
@@ -2641,13 +2649,38 @@ function UserProgressModal({ user, role, db, onClose }) {
               <div className="section-head">
                 <div><h3 style={{ fontSize: 24, fontWeight: 700 }}>Coordinator Profile</h3></div>
               </div>
-              <div className="card">
+              <div className="card" style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
                   <div className="avatar" style={{ width: 80, height: 80, fontSize: 28, borderRadius: 24 }}>{initials(user.name)}</div>
                   <div>
                     <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{user.name}</h2>
                     <p style={{ margin: "4px 0 0", color: "var(--ink-soft)" }}>{user.dept} · {user.email}</p>
                   </div>
+                </div>
+              </div>
+              <div className="section-head">
+                <div><h3 style={{ fontSize: 18, fontWeight: 600 }}>Drives Planned</h3></div>
+              </div>
+              <div className="card">
+                <div className="ledger-table-wrap">
+                  <table className="ledger-table">
+                    <thead><tr><th>No.</th><th>Title</th><th>Date</th><th>Location</th><th>Volunteers</th></tr></thead>
+                    <tbody>
+                      {db.activities.filter(a => a.createdBy === user.id).length === 0 ? (
+                        <tr><td colSpan="5" style={{ textAlign: "center", color: "var(--ink-soft)" }}>No drives planned yet.</td></tr>
+                      ) : (
+                        db.activities.filter(a => a.createdBy === user.id).map((a, i) => (
+                          <tr key={a.id}>
+                            <td className="rowno">{String(i + 1).padStart(3, "0")}</td>
+                            <td style={{ fontWeight: 600 }}>{a.title}</td>
+                            <td>{new Date(a.date).toLocaleDateString()}</td>
+                            <td>{a.location}</td>
+                            <td>{a.registered.length} / {a.maxVolunteers}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </>
@@ -2658,7 +2691,7 @@ function UserProgressModal({ user, role, db, onClose }) {
   );
 }
 
-function DepartmentsStaff({ db }) {
+function CoordinatorsView({ db }) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
 
@@ -2669,9 +2702,8 @@ function DepartmentsStaff({ db }) {
 
   return (
     <>
-      <div className="section-head"><div><h3>Departments &amp; staff</h3><p className="hint">Every coordinator and the department they run drives for.</p></div></div>
+      <div className="section-head"><div><h3>Coordinators</h3><p className="hint">Every coordinator and the department they run drives for.</p></div></div>
       <div className="card">
-        <h4 style={{ fontSize: 14.5, marginBottom: 14 }}>Coordinators</h4>
         <div className="ledger-table-wrap">
           <table className="ledger-table">
             <thead><tr><th>No.</th><th>Coordinator</th><th>Department</th><th>Drives run</th><th>Volunteers engaged</th></tr></thead>
@@ -2934,6 +2966,7 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
           newUser.verify_token = crypto.randomUUID();
         } else if (selectedRole === 'admin') {
            newUser.title = "Admin";
+           newUser.admin_id = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         }
         const { data: created, error } = await supabase.from(table).insert(newUser).select();
         if (created && created.length > 0) {
@@ -3202,13 +3235,14 @@ export default function App() {
 
   const load = useCallback(async () => {
     try {
-      const [{ data: s }, { data: sl }, { data: ad }, { data: act }, { data: hl }, { data: n }] = await Promise.all([
+      const [{ data: s }, { data: sl }, { data: ad }, { data: act }, { data: hl }, { data: n }, { data: ost }] = await Promise.all([
         supabase.from('students').select('*'),
         supabase.from('staff_list').select('*'),
         supabase.from('admins').select('*'),
         supabase.from('activities').select('*'),
         supabase.from('hour_logs').select('*'),
-        supabase.from('notifications').select('*')
+        supabase.from('notifications').select('*'),
+        supabase.from('other_staff').select('*')
       ]);
 
       const mappedActivities = (act || []).map(a => ({
@@ -3226,6 +3260,7 @@ export default function App() {
       setDb({
         students: s || [],
         staffList: sl || [],
+        otherStaff: ost || [],
         admins: ad || [],
         activities: mappedActivities,
         hourLogs: mappedLogs,
@@ -3357,6 +3392,16 @@ export default function App() {
       await supabase.from('students').update(updates).eq('id', personId);
       load();
       pushToast("Profile updated.", "success");
+    },
+    updateAdminProfile: async (personId, updates) => {
+      if (!db) return;
+      setDb(prev => ({
+        ...prev,
+        admins: prev.admins.map(a => a.id === personId ? { ...a, ...updates } : a)
+      }));
+      await supabase.from('admins').update(updates).eq('id', personId);
+      load();
+      pushToast("Admin Profile updated.", "success");
     },
   }), [db, pushToast, load]);
 
