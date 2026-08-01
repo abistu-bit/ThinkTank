@@ -106,16 +106,22 @@ const CSS = `
 
 body { margin: 0; overflow: hidden; }
 .seva-root {
-  --paper: #F4F6F8;
+  --paper: #F0F4FF;
   --paper-hi: #FFFFFF;
-  --paper-line: #E5E7EB;
-  --ink: #1E2A44;
-  --ink-soft: #56607A;
-  --stamp: #9E2B36;
-  --brass: #A9812F;
-  --moss: #3E6B4C;
-  --spark: #E0A72E;
-  --shadow: rgba(30,42,68,.35);
+  --paper-line: #E0E7FF;
+  --paper-hover: #EEF2FF;
+  --ink: #1E1B4B;
+  --ink-soft: #6366A0;
+  --stamp: #E11D48;
+  --brass: #D97706;
+  --moss: #059669;
+  --spark: #F59E0B;
+  --violet: #7C3AED;
+  --sky: #0EA5E9;
+  --shadow: rgba(99,102,241,.2);
+  --accent: #6366F1;
+  --accent-2: #EC4899;
+  --accent-3: #F97316;
   
   --font-display: 'Outfit', sans-serif;
   --font-body: 'Plus Jakarta Sans', sans-serif;
@@ -138,16 +144,22 @@ body { margin: 0; overflow: hidden; }
   overflow: hidden;
 }
 .seva-root[data-theme="dark"] {
-  --paper: #14181F;
-  --paper-hi: #1C212C;
-  --paper-line: #333C4D;
-  --ink: #F0ECDD;
-  --ink-soft: #939FBB;
-  --stamp: #E1636C;
-  --brass: #E0B558;
-  --moss: #6FBE8B;
-  --spark: #F0C25E;
-  --shadow: rgba(0,0,0,.55);
+  --paper: #0D0F1A;
+  --paper-hi: #13162A;
+  --paper-line: #1E2340;
+  --paper-hover: #181B30;
+  --ink: #E0E7FF;
+  --ink-soft: #818CF8;
+  --stamp: #F43F5E;
+  --brass: #FBBF24;
+  --moss: #34D399;
+  --spark: #FCD34D;
+  --violet: #A78BFA;
+  --sky: #38BDF8;
+  --shadow: rgba(0,0,0,.6);
+  --accent: #818CF8;
+  --accent-2: #F472B6;
+  --accent-3: #FB923C;
 }
 .seva-root *, .seva-root *::before, .seva-root *::after { box-sizing: border-box; }
 .seva-root button, .seva-root input, .seva-root textarea, .seva-root select { font-family: inherit; }
@@ -198,18 +210,20 @@ body { margin: 0; overflow: hidden; }
 
 /* ---- app shell ---- */
 .shell { display:flex; height:100vh; overflow:hidden; background: var(--paper); }
-.sidebar { width:260px; flex-shrink:0; background: var(--ink); color: #fff; display:flex; flex-direction:column; padding: 30px 20px; position: relative; height: 100vh; border-right: none; }
-.seva-root[data-theme="dark"] .sidebar { background: #0B0E13; border-right: 1px solid #333C4D; }
+.sidebar { width:260px; flex-shrink:0; background: linear-gradient(170deg, #1E1B4B 0%, #312E81 60%, #4338CA 100%); color: #fff; display:flex; flex-direction:column; padding: 30px 16px; position: relative; height: 100vh; border-right: none; }
+.seva-root[data-theme="dark"] .sidebar { background: linear-gradient(170deg, #060610 0%, #0D0F1A 60%, #13162A 100%); border-right: 1px solid #1E2340; }
+.sidebar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at top left, rgba(99,102,241,0.3) 0%, transparent 60%), radial-gradient(ellipse at bottom right, rgba(236,72,153,0.15) 0%, transparent 60%); pointer-events: none; }
 .sidebar-brand { display:flex; align-items:center; gap:12px; padding: 4px 8px 32px; font-family: var(--font-display); font-weight:700; font-size: 20px; color: #fff; }
-.sidebar-nav { display:flex; flex-direction:column; gap:6px; flex:1; overflow-y:auto; }
-.nav-group-title { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.6); letter-spacing: 0.1em; text-transform: uppercase; margin: 16px 0 6px 12px; }
-.nav-btn { display:flex; align-items:center; gap:12px; padding: 12px 16px; border-radius: 12px; background:none; border:none; color: rgba(255,255,255,0.7); font-size: 14.5px; font-weight:500; text-align:left; cursor:pointer; width:100%; transition: all 0.2s ease; }
-.nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.seva-root[data-theme="dark"] .nav-btn:hover { background: rgba(255,255,255,.04); color: #fff; }
-.nav-btn.active { background: #fff; color: var(--ink); font-weight:600; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
-.seva-root[data-theme="dark"] .nav-btn.active { background: #E1636C; color: #fff; box-shadow: 0 4px 12px rgba(225,99,108,.2); }
-.sidebar-foot { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; margin-top: 16px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
-.sidebar-foot button { display:flex; align-items:center; gap:10px; background:none; border:none; color: rgba(255,255,255,0.7); font-size: 13.5px; cursor:pointer; padding: 10px 16px; width:100%; text-align:left; border-radius: 12px; transition: all 0.2s ease; }
+.sidebar-nav { display:flex; flex-direction:column; gap:4px; flex:1; overflow-y:auto; }
+.nav-group-title { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.45); letter-spacing: 0.12em; text-transform: uppercase; margin: 14px 0 6px 10px; }
+.nav-btn { display:flex; align-items:center; gap:12px; padding: 11px 14px; border-radius: 14px; background:none; border:none; color: rgba(255,255,255,0.65); font-size: 14px; font-weight:500; text-align:left; cursor:pointer; width:100%; transition: all 0.2s ease; }
+.nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; transform: translateX(2px); }
+.seva-root[data-theme="dark"] .nav-btn:hover { background: rgba(255,255,255,.06); color: #fff; }
+.nav-btn.active { background: rgba(255,255,255,0.15); color: #fff; font-weight:700; box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 4px 16px rgba(0,0,0,.2); backdrop-filter: blur(8px); }
+.nav-btn.active .nav-icon-wrap { background: linear-gradient(135deg, #818CF8, #C084FC); border-radius: 8px; padding: 4px; color: #fff; }
+.seva-root[data-theme="dark"] .nav-btn.active { background: rgba(129,140,248,0.15); box-shadow: 0 0 0 1px rgba(129,140,248,0.3); }
+.sidebar-foot { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; margin-top: 16px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+.sidebar-foot button { display:flex; align-items:center; gap:10px; background:none; border:none; color: rgba(255,255,255,0.6); font-size: 13px; cursor:pointer; padding: 10px 14px; width:100%; text-align:left; border-radius: 12px; transition: all 0.2s ease; }
 .sidebar-foot button:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .seva-root[data-theme="dark"] .sidebar-foot button:hover { color: #fff; background: rgba(255,255,255,.04); }
 
@@ -251,7 +265,9 @@ body { margin: 0; overflow: hidden; }
 .empty-state p { font-size: 13.5px; max-width: 400px; line-height: 1.5; margin: 0; }
 
 .stat-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 14px; margin-bottom: 24px; width:100%; }
-.stat-card { background: var(--paper-hi); border: none; border-radius: 20px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); position: relative; }
+.stat-card { background: var(--paper-hi); border: none; border-radius: 20px; padding: 24px; box-shadow: 0 4px 20px rgba(99,102,241,0.06); position: relative; overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.12); }
+.stat-card::before { content: ''; position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; opacity: 0.08; background: var(--accent); }
 .stat-card .lbl { font-size: 11.5px; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.07em; font-weight:600; }
 .stat-card .row { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:8px; }
 .stat-card .val { font-family: var(--font-mono); font-size: 30px; font-weight:700; line-height:1; }
@@ -265,7 +281,7 @@ body { margin: 0; overflow: hidden; }
 .grid-2 { display:grid; grid-template-columns: 1.3fr 1fr; gap: 20px; width:100%; margin-bottom: 20px; }
 @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.card { background: var(--paper-hi); border: none; border-radius: 24px; padding: 30px; width:100%; box-sizing:border-box; box-shadow: 0 4px 24px rgba(0,0,0,0.03); min-width: 0; }
+.card { background: var(--paper-hi); border: none; border-radius: 24px; padding: 28px; width:100%; box-sizing:border-box; box-shadow: 0 2px 20px rgba(99,102,241,0.06); min-width: 0; transition: box-shadow 0.2s ease; }
 
 /* ---- search/filter bar ---- */
 .filter-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 18px; align-items:center; width:100%; }
@@ -310,9 +326,11 @@ body { margin: 0; overflow: hidden; }
 .stamp-red { color: var(--stamp); }
 .stamp-ink { color: var(--ink-soft); }
 
-.btn { display:inline-flex; align-items:center; gap:7px; font-size: 13px; font-weight:600; border-radius: 3px; padding: 9px 16px; cursor:pointer; border: 1.5px solid var(--ink); background: none; color: var(--ink); }
-.btn-primary { background: var(--ink); color: var(--paper); }
-.btn-primary:hover { filter: brightness(1.15); }
+.btn { display:inline-flex; align-items:center; gap:7px; font-size: 13px; font-weight:600; border-radius: 10px; padding: 9px 18px; cursor:pointer; border: 1.5px solid var(--paper-line); background: none; color: var(--ink); transition: all 0.2s ease; }
+.btn-primary { background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(99,102,241,0.35); }
+.btn-primary:hover { filter: brightness(1.1); box-shadow: 0 6px 20px rgba(99,102,241,0.45); transform: translateY(-1px); }
+.btn-outline { border-color: var(--accent); color: var(--accent); }
+.btn-outline:hover { background: var(--accent); color: #fff; }
 .btn-ghost { border-color: var(--paper-line); }
 .btn-ghost:hover { border-color: var(--ink); }
 .btn-danger { border-color: var(--stamp); color: var(--stamp); }
@@ -321,9 +339,10 @@ body { margin: 0; overflow: hidden; }
 .btn-sm { padding: 6px 12px; font-size:12px; }
 .btn-block { width:100%; justify-content:center; }
 
-.tabs { display:flex; gap: 4px; border-bottom: 1.5px solid var(--paper-line); margin-bottom: 20px; overflow-x:auto; }
-.tab { padding: 9px 4px; margin-right: 22px; background:none; border:none; border-bottom: 2.5px solid transparent; font-size: 13.5px; font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap; }
-.tab.active { color: var(--ink); border-bottom-color: var(--stamp); }
+.tabs { display:flex; gap: 4px; border-bottom: 2px solid var(--paper-line); margin-bottom: 20px; overflow-x:auto; }
+.tab { padding: 10px 4px; margin-right: 22px; background:none; border:none; border-bottom: 2.5px solid transparent; margin-bottom: -2px; font-size: 13.5px; font-weight:600; color: var(--ink-soft); cursor:pointer; white-space:nowrap; transition: color 0.2s ease; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 .ledger-table { width:100%; border-collapse: separate; border-spacing: 0; font-size: var(--text-sm); }
 .ledger-table th { text-align:left; font-family: var(--font-display); font-size:var(--text-xs); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color: var(--ink-soft); padding: 12px 16px; border-bottom: 1px solid var(--paper-line); white-space:nowrap; position: sticky; top: 0; background: var(--paper-hi); z-index: 10; box-shadow: 0 1px 0 var(--paper-line); }
@@ -360,7 +379,7 @@ body { margin: 0; overflow: hidden; }
 .empty-state p { font-size:13px; max-width:320px; margin: 0 auto; }
 
 .toast-stack { position:fixed; bottom: 20px; right: 20px; display:flex; flex-direction:column; gap:10px; z-index: 200; width: 300px; }
-.toast { background: var(--ink); color: var(--paper); border-radius: 3px; padding: 12px 14px; font-size: 13px; box-shadow: 0 12px 28px -10px rgba(0,0,0,.5); border-left: 4px solid var(--brass); animation: seva-slide .25s ease; }
+.toast { background: var(--paper-hi); color: var(--ink); border-radius: 16px; padding: 14px 16px; font-size: 13px; box-shadow: 0 12px 32px -8px var(--shadow); border-left: 4px solid var(--accent); animation: seva-slide .25s ease; backdrop-filter: blur(8px); }
 .toast.warn { border-left-color: var(--stamp); }
 .toast.success { border-left-color: var(--moss); }
 @keyframes seva-slide { from { transform: translateX(24px); opacity:0; } to { transform: translateX(0); opacity:1; } }
@@ -920,6 +939,7 @@ const NAV_ITEMS = {
   admin: [
     { key: "overview", label: "Overview", icon: Wallet },
     { key: "approvals", label: "Approve drives", icon: ShieldCheck },
+    { key: "manage", label: "Manage drives", icon: ClipboardList },
     { key: "coordinators", label: "Coordinators", icon: Building2 },
     { key: "volunteers", label: "Volunteers", icon: Users },
     { key: "gallery", label: "Gallery", icon: Image },
@@ -990,7 +1010,7 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
   }
 
   const myNotifs = useMemo(
-    () => [...db.notifications].filter((n) => audienceMatches(n.audience, session)).sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 12),
+    () => [...db.notifications].filter((n) => audienceMatches(n.audience, session)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 20),
     [db.notifications, session]
   );
 
@@ -1097,7 +1117,7 @@ function Shell({ db, session, view, setView, onExit, notify, doSync, theme, togg
                       </div>
                       <div className="item-content">
                         <div>{renderMessage(n.message)}</div>
-                        <div className="t">{new Date(n.time).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                        <div className="t">{n.created_at ? new Date(n.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Just now"}</div>
                       </div>
                     </div>
                   );
@@ -2471,9 +2491,8 @@ function AdminViews({ db, view, person, notify, openDrive }) {
             <button className="btn" onClick={async () => {
               const input = document.getElementById("admin-broadcast-input");
               if (!input.value) return;
-              await supabase.from("notifications").insert({ audience: "all", message: input.value, tone: "info" });
+              await notify.broadcast(person, input.value.trim(), false);
               input.value = "";
-              alert("Broadcast sent!");
             }} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", width: "100%", marginTop: 24, padding: "12px" }}>Send Now</button>
           </div>
         </div>
@@ -2482,6 +2501,7 @@ function AdminViews({ db, view, person, notify, openDrive }) {
   }
 
   if (view === "approvals") return <AdminApprovalsView db={db} pendingActivities={pendingActivities} notify={notify} />;
+  if (view === "manage") return <AdminManageDrives db={db} notify={notify} openDrive={openDrive} />;
   if (view === "coordinators") return <CoordinatorsView db={db} />;
   if (view === "volunteers") return <AdminVolunteersView db={db} />;
   if (view === "profile") return <AdminProfile person={person} notify={notify} />;
@@ -2549,6 +2569,53 @@ function ActivityList({ db, activities, emptyText }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/* ---- Admin: Manage all drives ---- */
+function AdminManageDrives({ db, notify, openDrive }) {
+  const [tab, setTab] = useState("all");
+  const allActivities = db.activities;
+  const filtered = tab === "all" ? allActivities : allActivities.filter((a) => a.status === tab);
+
+  return (
+    <>
+      <div className="section-head">
+        <div><h3>Manage all drives</h3><p className="hint">View, track, and complete all drives across every coordinator.</p></div>
+      </div>
+      <div className="tabs">
+        {["all", "pending_approval", "published", "completed", "rejected"].map((t) => (
+          <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
+            {t === "all" ? "All" : STATUS_MAP[t] ? STATUS_MAP[t].text : t}
+          </button>
+        ))}
+      </div>
+      {filtered.length === 0 ? (
+        <EmptyState icon={ClipboardList} title="No drives here" body="Drives matching this filter will appear here." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {filtered.map((a) => {
+            const coordinator = db.staffList.find((s) => s.id === a.createdBy);
+            const { text: statusText, color: statusColor } = STATUS_MAP[a.status] || { text: a.status, color: "var(--ink-soft)" };
+            return (
+              <div key={a.id} style={{ background: "var(--paper-hi)", padding: 16, borderRadius: 16, border: "1px solid var(--paper-line)", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 3 }}>
+                    {coordinator ? coordinator.name : "Unknown coordinator"} · {fmtDate(a.date)} · {a.location}
+                  </div>
+                </div>
+                <span style={{ padding: "3px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, background: statusColor + "22", color: statusColor, flexShrink: 0 }}>{statusText}</span>
+                {a.status === "published" && (
+                  <button className="btn btn-outline" style={{ padding: "6px 12px", fontSize: 12, flexShrink: 0 }} onClick={() => notify.completeActivity(a.id)}>Mark Complete</button>
+                )}
+                <button className="btn btn-ghost" style={{ padding: "6px 12px", fontSize: 12, flexShrink: 0 }} onClick={() => openDrive(a.id)}>View</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -3631,6 +3698,16 @@ export default function App() {
   }), [db, pushToast, load]);
 
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
+
+  // Auto-patch missing admin_id for admins who signed up before this feature
+  useEffect(() => {
+    if (!session || !db || session.role !== 'admin') return;
+    const admin = db.admins.find(a => a.id === session.personaId);
+    if (admin && !admin.admin_id) {
+      const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      supabase.from('admins').update({ admin_id: newAdminId }).eq('id', admin.id).then(() => load());
+    }
+  }, [session, db, load]);
 
   if (db === null) {
     return (
