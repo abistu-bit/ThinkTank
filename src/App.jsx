@@ -3129,23 +3129,28 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
       
       const { data } = await supabase.from(table).select('*').eq('email', email);
       if (data && data.length > 0) {
+        // Existing record — patch unit if missing
+        if (!data[0].unit && selectedRole !== 'student') {
+          await supabase.from(table).update({ unit }).eq('id', data[0].id);
+        }
         onLoginSuccess({ role: selectedRole, personaId: data[0].id });
       } else {
-        const newUser = { email, name: name || email.split('@')[0] };
+        const newUser = { email, name: name || email.split('@')[0], unit };
         if (selectedRole === 'student') {
           newUser.dept = 'CSE';
-          newUser.unit = unit;
           newUser.reg_no = `NSS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
           newUser.verify_token = crypto.randomUUID();
+        } else if (selectedRole === 'staff') {
+          newUser.dept = 'CSE';
         } else if (selectedRole === 'admin') {
-           newUser.title = "Admin";
-           newUser.admin_id = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+          newUser.title = 'Program Admin';
+          newUser.admin_id = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         }
         const { data: created, error } = await supabase.from(table).insert(newUser).select();
         if (created && created.length > 0) {
           onLoginSuccess({ role: selectedRole, personaId: created[0].id });
         } else {
-          alert("Login failed. " + (error ? error.message : ""));
+          alert("Sign up failed. " + (error ? error.message : ""));
         }
       }
     } else {
@@ -3154,7 +3159,18 @@ function SupabaseLogin({ onLoginSuccess, theme, toggleTheme }) {
       
       const { data } = await supabase.from(table).select('*').eq('email', email);
       if (data && data.length > 0) {
-        onLoginSuccess({ role: selectedRole, personaId: data[0].id });
+        let record = data[0];
+        // If admin is missing their ID, generate one now and patch
+        if (selectedRole === 'admin' && !record.admin_id) {
+          const newAdminId = `ADMIN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+          await supabase.from('admins').update({ admin_id: newAdminId, unit: record.unit || unit }).eq('id', record.id);
+          record = { ...record, admin_id: newAdminId, unit: record.unit || unit };
+        }
+        // Patch unit on login if missing
+        if (!record.unit && unit) {
+          await supabase.from(table).update({ unit }).eq('id', record.id);
+        }
+        onLoginSuccess({ role: selectedRole, personaId: record.id });
       } else {
         alert("Account not found for this role. Please sign up or choose the correct role.");
       }
